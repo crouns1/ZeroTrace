@@ -29,8 +29,36 @@ export interface IpAsset {
   vulns: string[];
 }
 
+export interface PublicPerson {
+  name: string;
+  role?: string;
+  sourcePage?: string;
+}
+
+export interface OrganizationPage {
+  label: string;
+  url: string;
+}
+
+export interface OrganizationProfile {
+  website: string;
+  name?: string;
+  summary?: string;
+  description?: string;
+  foundedYear?: number;
+  earliestArchiveYear?: number;
+  location?: string;
+  generator?: string;
+  emails: string[];
+  phones: string[];
+  socialLinks: string[];
+  relevantPages: OrganizationPage[];
+  people: PublicPerson[];
+  sources: string[];
+}
+
 export interface RelatedAsset {
-  kind: "hostname" | "service" | "tag" | "certificate";
+  kind: "hostname" | "service" | "tag" | "certificate" | "person";
   value: string;
   relation: string;
   source: string;
@@ -41,6 +69,7 @@ export interface SourceResult {
   domains?: DomainAsset[];
   subdomains?: DomainAsset[];
   ipAddresses?: IpAsset[];
+  organization?: OrganizationProfile;
   relatedAssets?: RelatedAsset[];
   notes?: string[];
 }
@@ -50,6 +79,7 @@ export interface SearchResponse {
   domains: DomainAsset[];
   subdomains: DomainAsset[];
   ipAddresses: IpAsset[];
+  organization: OrganizationProfile | null;
   openPorts: Array<{
     ip: string;
     port: number;
@@ -62,6 +92,7 @@ export interface SearchResponse {
     domainCount: number;
     subdomainCount: number;
     ipCount: number;
+    peopleCount: number;
     portCount: number;
     relatedAssetCount: number;
   };
@@ -77,4 +108,3 @@ export interface SearchSource {
   supports(query: ParsedQuery): boolean;
   search(query: ParsedQuery): Promise<SourceResult>;
 }
-

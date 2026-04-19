@@ -17,6 +17,7 @@ It is the fastest path from target to passive asset map for authorized external 
 - Advanced search operators: `domain:`, `subdomain:`, `ip:`
 - Passive aggregation from public certificate transparency, DNS, and IP enrichment sources
 - Structured results for domains, subdomains, IPs, open ports, and related assets
+- Public website OSINT for company summary, team pages, leadership signals, archive year hints, contacts, and social links
 - Browser-local search history
 - Modular backend source system for future expansion
 - Ethical-usage disclaimer in both the API response and frontend UI
@@ -36,6 +37,8 @@ Competitive positioning is documented in [docs/competitive-analysis.md](/home/cr
 - Cert Spotter CT Search API for certificate transparency lookups
 - Google Public DNS JSON API for passive DNS resolution
 - Shodan InternetDB for passive IP enrichment on `ip:` searches and resolved IPs
+- Target-website public pages for company/leadership/team/contact signals
+- Internet Archive CDX API as a best-effort source for earliest public archive year
 
 All sources used in this MVP are public/passive. Zero Trace does not perform active scanning.
 
@@ -77,6 +80,7 @@ npm run build
 - The backend includes an in-memory TTL cache to reduce repeat calls to public sources.
 - The worker system is lightweight and promise-based for this MVP, making it easy to replace with a queue later.
 - PostgreSQL and Redis are documented as future-ready slots in the architecture, but are not required to run this initial version.
+- Website organization intelligence is best-effort and limited to public target-site content. Zero Trace does not scrape third-party employee networks to enumerate staff.
 
 ## 2026 Quality Bar
 

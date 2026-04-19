@@ -307,6 +307,11 @@ body::before {
   padding: 1rem;
 }
 
+.asset-card a.tag,
+.asset-card a.mini-chip {
+  text-decoration: none;
+}
+
 .error-banner {
   border: 1px solid rgba(248, 113, 113, 0.25);
   background: rgba(69, 10, 10, 0.45);

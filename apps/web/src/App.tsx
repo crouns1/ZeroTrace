@@ -84,6 +84,20 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+function ExternalLinkCard({
+  href,
+  label,
+}: {
+  href: string;
+  label: string;
+}) {
+  return (
+    <a className="mini-chip" href={href} rel="noreferrer" target="_blank">
+      {label}
+    </a>
+  );
+}
+
 export default function App() {
   const [query, setQuery] = useState("domain:example.com");
   const [result, setResult] = useState<SearchResponse | null>(null);
@@ -320,13 +334,186 @@ export default function App() {
                   </div>
                 </section>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                   <StatCard label="Domains" value={result.stats.domainCount} />
                   <StatCard label="Subdomains" value={result.stats.subdomainCount} />
                   <StatCard label="IPs" value={result.stats.ipCount} />
+                  <StatCard label="People" value={result.stats.peopleCount} />
                   <StatCard label="Open Ports" value={result.stats.portCount} />
                   <StatCard label="Related Assets" value={result.stats.relatedAssetCount} />
                 </div>
+
+                {result.organization ? (
+                  <ResultSection
+                    count={result.organization.people.length}
+                    eyebrow="Public organization intelligence"
+                    title="Website OSINT"
+                  >
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+                      <article className="asset-card space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-semibold text-slate-50">
+                              {result.organization.name ?? result.organization.website}
+                            </h3>
+                            <p className="mt-2 text-sm text-slate-400">{result.organization.website}</p>
+                          </div>
+                          <span className="tag">Website profile</span>
+                        </div>
+
+                        {result.organization.summary ? (
+                          <p className="text-sm leading-7 text-slate-300">{result.organization.summary}</p>
+                        ) : null}
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="mission-cell">
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Founded year
+                            </div>
+                            <div className="mt-2 text-sm text-slate-200">
+                              {result.organization.foundedYear ?? "Not confirmed"}
+                            </div>
+                          </div>
+                          <div className="mission-cell">
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Earliest archive year
+                            </div>
+                            <div className="mt-2 text-sm text-slate-200">
+                              {result.organization.earliestArchiveYear ?? "Not detected"}
+                            </div>
+                          </div>
+                          <div className="mission-cell">
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Location
+                            </div>
+                            <div className="mt-2 text-sm text-slate-200">
+                              {result.organization.location ?? "Not detected"}
+                            </div>
+                          </div>
+                          <div className="mission-cell">
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Generator
+                            </div>
+                            <div className="mt-2 break-all text-sm text-slate-200">
+                              {result.organization.generator ?? "Not detected"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Emails
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {result.organization.emails.length > 0 ? (
+                                result.organization.emails.map((email) => (
+                                  <span className="mini-chip" key={email}>
+                                    {email}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-500">None detected</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Phones
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {result.organization.phones.length > 0 ? (
+                                result.organization.phones.map((phone) => (
+                                  <span className="mini-chip" key={phone}>
+                                    {phone}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-500">None detected</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                              Source pages
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {result.organization.relevantPages.length > 0 ? (
+                                result.organization.relevantPages.map((page) => (
+                                  <ExternalLinkCard href={page.url} key={page.url} label={page.label} />
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-500">No pages detected</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+
+                      <article className="asset-card space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-50">Public team and leadership</h3>
+                            <p className="mt-2 text-sm text-slate-400">
+                              Best-effort extraction from the target website only. Not exhaustive.
+                            </p>
+                          </div>
+                          <span className="metric-pill">{result.organization.people.length}</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {result.organization.people.length > 0 ? (
+                            result.organization.people.map((person) => (
+                              <div className="history-item" key={`${person.name}-${person.role ?? ""}`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <div className="mono text-sm text-slate-50">{person.name}</div>
+                                    <div className="mt-2 text-xs text-slate-400">
+                                      {person.role ?? "Public profile detected"}
+                                    </div>
+                                  </div>
+                                  {person.sourcePage ? (
+                                    <a
+                                      className="tag"
+                                      href={person.sourcePage}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      Source
+                                    </a>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-400">
+                              No public employee or manager profiles were detected on the target site.
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
+                            Social links
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {result.organization.socialLinks.length > 0 ? (
+                              result.organization.socialLinks.map((link) => (
+                                <ExternalLinkCard
+                                  href={link}
+                                  key={link}
+                                  label={new URL(link).hostname.replace(/^www\./, "")}
+                                />
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500">No public social links detected</span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    </div>
+                  </ResultSection>
+                ) : null}
 
                 <ResultSection
                   count={result.domains.length + result.subdomains.length}

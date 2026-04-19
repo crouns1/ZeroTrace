@@ -4,9 +4,11 @@ import { parseQuery } from "../lib/query.js";
 import { CertSpotterSource } from "../sources/certspotter-source.js";
 import { GoogleDnsSource } from "../sources/dns-source.js";
 import { InternetDbSource } from "../sources/internetdb-source.js";
+import { WebsiteProfileSource } from "../sources/website-profile-source.js";
 import type {
   DomainAsset,
   IpAsset,
+  OrganizationProfile,
   RelatedAsset,
   SearchResponse,
   SearchSource,
@@ -60,11 +62,62 @@ function mergeIpAssets(target: Map<string, IpAsset>, assets: IpAsset[]): void {
   }
 }
 
+function mergeOrganization(
+  current: OrganizationProfile | null,
+  next: OrganizationProfile | undefined,
+): OrganizationProfile | null {
+  if (!next) {
+    return current;
+  }
+
+  if (!current) {
+    return {
+      ...next,
+      emails: [...next.emails],
+      phones: [...next.phones],
+      socialLinks: [...next.socialLinks],
+      relevantPages: [...next.relevantPages],
+      people: [...next.people],
+      sources: [...next.sources],
+    };
+  }
+
+  return {
+    website: current.website || next.website,
+    name: current.name ?? next.name,
+    summary: current.summary ?? next.summary,
+    description: current.description ?? next.description,
+    foundedYear: current.foundedYear ?? next.foundedYear,
+    earliestArchiveYear:
+      current.earliestArchiveYear ?? next.earliestArchiveYear,
+    location: current.location ?? next.location,
+    generator: current.generator ?? next.generator,
+    emails: Array.from(new Set([...current.emails, ...next.emails])),
+    phones: Array.from(new Set([...current.phones, ...next.phones])),
+    socialLinks: Array.from(new Set([...current.socialLinks, ...next.socialLinks])),
+    relevantPages: Array.from(
+      new Map(
+        [...current.relevantPages, ...next.relevantPages].map((page) => [`${page.label}:${page.url}`, page]),
+      ).values(),
+    ),
+    people: Array.from(
+      new Map(
+        [...current.people, ...next.people].map((person) => [
+          `${person.name.toLowerCase()}:${(person.role ?? "").toLowerCase()}`,
+          person,
+        ]),
+      ).values(),
+    ).slice(0, 24),
+    sources: Array.from(new Set([...current.sources, ...next.sources])),
+  };
+}
+
 function buildResponse(results: SourceResult[], query: SearchResponse["query"], durationMs: number): SearchResponse {
   const domains = new Map<string, DomainAsset>();
   const subdomains = new Map<string, DomainAsset>();
   const ipAddresses = new Map<string, IpAsset>();
   const relatedAssets = new Map<string, RelatedAsset>();
+  let organization: OrganizationProfile | null = null;
   const notes = new Set<string>();
   const sources = new Set<string>();
 
@@ -73,6 +126,7 @@ function buildResponse(results: SourceResult[], query: SearchResponse["query"], 
     mergeDomainAssets(domains, result.domains ?? []);
     mergeDomainAssets(subdomains, result.subdomains ?? []);
     mergeIpAssets(ipAddresses, result.ipAddresses ?? []);
+    organization = mergeOrganization(organization, result.organization);
 
     for (const asset of result.relatedAssets ?? []) {
       relatedAssets.set(`${asset.kind}:${asset.value}:${asset.relation}`, asset);
@@ -128,6 +182,7 @@ function buildResponse(results: SourceResult[], query: SearchResponse["query"], 
     domains: finalDomains,
     subdomains: finalSubdomains,
     ipAddresses: finalIps,
+    organization,
     openPorts,
     relatedAssets: finalRelatedAssets,
     sources: Array.from(sources).sort(),
@@ -136,6 +191,7 @@ function buildResponse(results: SourceResult[], query: SearchResponse["query"], 
       domainCount: finalDomains.length,
       subdomainCount: finalSubdomains.length,
       ipCount: finalIps.length,
+      peopleCount: organization?.people.length ?? 0,
       portCount: openPorts.length,
       relatedAssetCount: finalRelatedAssets.length,
     },
@@ -157,6 +213,7 @@ function buildEmptyResponse(
     domains: [],
     subdomains: [],
     ipAddresses: [],
+    organization: null,
     openPorts: [],
     relatedAssets: [],
     sources: [],
@@ -165,6 +222,7 @@ function buildEmptyResponse(
       domainCount: 0,
       subdomainCount: 0,
       ipCount: 0,
+      peopleCount: 0,
       portCount: 0,
       relatedAssetCount: 0,
     },
@@ -182,6 +240,7 @@ export class SearchService {
   private readonly internetDbSource = new InternetDbSource();
   private readonly sources: SearchSource[] = [
     new CertSpotterSource(),
+    new WebsiteProfileSource(),
     this.dnsSource,
     this.internetDbSource,
   ];

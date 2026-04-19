@@ -37,7 +37,8 @@ export function HistoryPanel({ history, onReplay }: HistoryPanelProps) {
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-400">
                 <span>{formatter.format(new Date(entry.searchedAt))}</span>
                 <span>
-                  {entry.stats.subdomainCount} subdomains / {entry.stats.ipCount} IPs
+                  {entry.stats.subdomainCount} subdomains / {entry.stats.ipCount} IPs /{" "}
+                  {entry.stats.peopleCount} people
                 </span>
               </div>
             </button>
@@ -47,4 +48,3 @@ export function HistoryPanel({ history, onReplay }: HistoryPanelProps) {
     </section>
   );
 }
-

@@ -17,6 +17,7 @@ React UI
       -> certificate transparency source
       -> Google DNS source
       -> InternetDB source
+      -> website profile / organization intelligence source
     -> Enrichment Worker
     -> Aggregator / Normalizer
     -> TTL Cache
@@ -47,6 +48,7 @@ This keeps source logic isolated from the API route and makes future integration
 - VirusTotal
 - Whois / RDAP
 - ASN enrichment
+- Company enrichment providers
 
 ## Enrichment Worker
 
@@ -56,6 +58,7 @@ Current responsibilities:
 
 - Resolve discovered domains and subdomains to IPs
 - Enrich IPs with passive port and hostname data
+- Build organization summaries from target-site public pages
 - Deduplicate and normalize records
 
 Future upgrade path:
@@ -75,6 +78,7 @@ The interface is optimized for quick scanning:
 - Command-style search bar
 - Operator hints
 - Dense but readable result cards
+- Website OSINT panel for public company and leadership signals
 - Persistent local history for repeated target pivots
 - Dark theme with terminal-inspired accents
 
@@ -94,3 +98,4 @@ The current MVP returns normalized JSON to the frontend and stores history local
 - Clear disclaimer in the UI and API responses
 - No active scanning or intrusion logic
 - Designed for authorized security research and asset discovery
+- Public people data is limited to what the target website itself exposes and may be incomplete
