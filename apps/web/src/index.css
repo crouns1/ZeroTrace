@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg-0: #041015;
+  --bg-1: #081a22;
+  --panel: rgba(9, 23, 31, 0.74);
+  --panel-border: rgba(148, 163, 184, 0.14);
+  --text-soft: #94a3b8;
+  --glow: rgba(16, 185, 129, 0.24);
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(6, 182, 212, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 34%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px;
+  color: #e5f2ed;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(4, 16, 21, 0) 0%, rgba(4, 16, 21, 0.45) 100%);
+}
+
+#root {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+.panel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  backdrop-filter: blur(22px);
+  border-radius: 1.75rem;
+  padding: 1.5rem;
+  box-shadow:
+    0 28px 80px rgba(2, 6, 23, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.panel-outline {
+  border: 1px solid rgba(125, 211, 252, 0.12);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -35% auto;
+  width: 240px;
+  height: 240px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--glow), transparent 65%);
+  pointer-events: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: rgba(5, 46, 36, 0.55);
+  padding: 0.45rem 0.8rem;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+.title-glow {
+  text-shadow: 0 0 30px rgba(16, 185, 129, 0.14);
+}
+
+.action-button {
+  border: 0;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(8, 145, 178, 0.95));
+  color: #02130d;
+  font-weight: 700;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.action-button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.chip-button,
+.mini-chip,
+.metric-pill,
+.tag {
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+.chip-button {
+  border: 1px solid rgba(100, 116, 139, 0.32);
+  border-radius: 9999px;
+  background: rgba(8, 15, 23, 0.62);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0.55rem 0.85rem;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.chip-button:hover {
+  border-color: rgba(16, 185, 129, 0.42);
+  transform: translateY(-1px);
+}
+
+.metric-card {
+  border: 1px solid rgba(100, 116, 139, 0.14);
+  background: rgba(8, 15, 23, 0.54);
+  border-radius: 1.5rem;
+  padding: 1.1rem 1.15rem;
+}
+
+.metric-pill,
+.mini-chip,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+}
+
+.metric-pill {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(5, 46, 36, 0.6);
+  color: #a7f3d0;
+  padding: 0.4rem 0.7rem;
+}
+
+.mini-chip {
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  background: rgba(8, 47, 73, 0.45);
+  color: #bae6fd;
+  padding: 0.35rem 0.6rem;
+}
+
+.tag {
+  border: 1px solid rgba(94, 234, 212, 0.18);
+  background: rgba(17, 94, 89, 0.34);
+  color: #99f6e4;
+  padding: 0.35rem 0.55rem;
+  text-transform: uppercase;
+}
+
+.asset-card,
+.history-item {
+  border: 1px solid rgba(100, 116, 139, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(8, 15, 23, 0.54);
+  padding: 1rem;
+}
+
+.history-item {
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.history-item:hover {
+  border-color: rgba(16, 185, 129, 0.28);
+  transform: translateY(-1px);
+}
+
+.error-banner {
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  background: rgba(69, 10, 10, 0.45);
+  border-radius: 1.25rem;
+  padding: 1rem 1.2rem;
+  color: #fecaca;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 1.15rem;
+    border-radius: 1.35rem;
+  }
+}
+
