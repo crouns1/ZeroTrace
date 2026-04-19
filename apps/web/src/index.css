@@ -8,6 +8,8 @@
   --panel-border: rgba(148, 163, 184, 0.14);
   --text-soft: #94a3b8;
   --glow: rgba(16, 185, 129, 0.24);
+  --warm-glow: rgba(251, 191, 36, 0.16);
+  --cool-glow: rgba(34, 211, 238, 0.18);
 }
 
 html {
@@ -79,6 +81,17 @@ body::before {
   pointer-events: none;
 }
 
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto auto -8%;
+  width: 260px;
+  height: 260px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--cool-glow), transparent 62%);
+  pointer-events: none;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -96,6 +109,30 @@ body::before {
 
 .title-glow {
   text-shadow: 0 0 30px rgba(16, 185, 129, 0.14);
+}
+
+.mission-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid rgba(100, 116, 139, 0.18);
+  border-radius: 9999px;
+  background: rgba(10, 18, 26, 0.66);
+  color: #dbe7f1;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  padding: 0.52rem 0.85rem;
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, #34d399, #22d3ee);
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08);
 }
 
 .action-button {
@@ -150,6 +187,18 @@ body::before {
   background: rgba(8, 15, 23, 0.54);
   border-radius: 1.5rem;
   padding: 1.1rem 1.15rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -40% auto;
+  width: 140px;
+  height: 140px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.08), transparent 65%);
 }
 
 .metric-pill,
@@ -184,22 +233,78 @@ body::before {
 }
 
 .asset-card,
-.history-item {
+.history-item,
+.operator-card,
+.benchmark-card,
+.spotlight-card {
   border: 1px solid rgba(100, 116, 139, 0.14);
   border-radius: 1.25rem;
   background: rgba(8, 15, 23, 0.54);
   padding: 1rem;
 }
 
-.history-item {
+.history-item,
+.operator-card,
+.benchmark-card,
+.spotlight-card {
   transition:
     border-color 160ms ease,
-    transform 160ms ease;
+    transform 160ms ease,
+    background 160ms ease;
 }
 
-.history-item:hover {
+.history-item:hover,
+.operator-card:hover,
+.benchmark-card:hover,
+.spotlight-card:hover {
   border-color: rgba(16, 185, 129, 0.28);
   transform: translateY(-1px);
+}
+
+.operator-card {
+  background:
+    linear-gradient(180deg, rgba(6, 14, 23, 0.8), rgba(8, 15, 23, 0.52)),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent 35%);
+}
+
+.benchmark-card {
+  background:
+    linear-gradient(180deg, rgba(9, 18, 30, 0.82), rgba(8, 15, 23, 0.52)),
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 30%);
+}
+
+.spotlight-card {
+  background:
+    linear-gradient(180deg, rgba(14, 18, 30, 0.82), rgba(8, 15, 23, 0.52)),
+    radial-gradient(circle at bottom right, var(--warm-glow), transparent 38%);
+}
+
+.mission-strip {
+  border: 1px solid rgba(125, 211, 252, 0.1);
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(180deg, rgba(6, 13, 20, 0.82), rgba(8, 15, 23, 0.58)),
+    radial-gradient(circle at bottom left, rgba(34, 211, 238, 0.08), transparent 34%);
+  padding: 0.9rem;
+}
+
+.mission-cell {
+  border-radius: 1rem;
+  border: 1px solid rgba(100, 116, 139, 0.12);
+  background: rgba(7, 14, 22, 0.52);
+  padding: 0.95rem;
+}
+
+.roadmap-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border: 1px solid rgba(100, 116, 139, 0.12);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(6, 14, 23, 0.8), rgba(8, 15, 23, 0.5)),
+    radial-gradient(circle at top right, rgba(251, 191, 36, 0.08), transparent 36%);
+  padding: 1rem;
 }
 
 .error-banner {
@@ -215,5 +320,9 @@ body::before {
     padding: 1.15rem;
     border-radius: 1.35rem;
   }
-}
 
+  .mission-pill {
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+  }
+}
