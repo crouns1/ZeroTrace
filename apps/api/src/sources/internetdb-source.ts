@@ -32,6 +32,7 @@ export class InternetDbSource implements SearchSource {
       openPorts: response.ports ?? [],
       tags: response.tags ?? [],
       vulns: response.vulns ?? [],
+      cpes: response.cpes ?? [],
     };
 
     const relatedAssets: SourceResult["relatedAssets"] = [];
@@ -74,4 +75,3 @@ export class InternetDbSource implements SearchSource {
     };
   }
 }
-

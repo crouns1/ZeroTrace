@@ -1,101 +1,160 @@
-# Zero Trace Architecture
+# ReconPulse Architecture
 
 ## Objectives
 
-- Keep the UX fast and minimal for security researchers
-- Use passive, public, legally accessible data sources only
-- Make data-source integrations easy to add or replace
-- Keep the MVP simple while leaving room for accounts, exports, and background jobs
+- Help bug bounty hunters find likely bugs faster
+- Reduce noise and increase signal with risk-ranked output
+- Keep all collection passive, public, and legally safe by default
+- Stay modular so new data sources and heuristics can be added without rewriting the product
+- Keep the runtime usable locally while preserving a clear path to Redis/BullMQ scale-out
 
 ## High-Level Design
 
 ```text
-React UI
-  -> Search API
-    -> Query Parser
+React Workbench
+  -> Search / Job API
+    -> Advanced Query Parser
     -> Source Registry
-      -> certificate transparency source
-      -> Google DNS source
-      -> InternetDB source
-      -> website profile / organization intelligence source
+      -> certificate transparency
+      -> passive DNS
+      -> passive service enrichment
+      -> website intelligence
     -> Enrichment Worker
-    -> Aggregator / Normalizer
-    -> TTL Cache
+    -> Intelligence Engine
+      -> risk scoring
+      -> tech fingerprinting
+      -> subdomain intelligence
+      -> where-to-look suggestions
+      -> graph builder
+    -> Cache Provider
+      -> memory
+      -> redis (optional)
+    -> Job Runner
+      -> memory worker
+      -> BullMQ (optional)
 ```
 
 ## Backend Modules
 
-### Query Parser
+### Advanced Query Parser
 
-Normalizes raw user input into a structured search intent.
+Normalizes command-style queries into a structured filter set.
 
-- `domain:example.com`
-- `subdomain:api.example.com`
-- `ip:8.8.8.8`
-- plain domain fallback such as `example.com`
+Supported filters today:
 
-## Source Adapters
+- `domain:`
+- `subdomain:`
+- `ip:`
+- `port:`
+- `risk:`
+- `status:`
+- `tech:`
+- `sort:`
+- `limit:`
 
-Each adapter exposes the same interface:
+### Source Registry
+
+Each source adapter follows the same interface:
 
 - `supports(query)`
 - `search(query)`
 
-This keeps source logic isolated from the API route and makes future integrations straightforward, such as:
+Current adapters:
+
+- certificate transparency
+- passive DNS
+- passive IP/service enrichment
+- website profile and public organization intelligence
+
+This makes it straightforward to add future providers such as:
 
 - Censys
 - SecurityTrails
 - VirusTotal
 - Whois / RDAP
 - ASN enrichment
-- Company enrichment providers
+- bug bounty program metadata
 
-## Enrichment Worker
+### Enrichment Worker
 
-The MVP uses a lightweight promise-based worker layer to enrich results without adding queue infrastructure yet.
+The enrichment worker handles safe follow-up collection after the initial source pass.
 
 Current responsibilities:
 
-- Resolve discovered domains and subdomains to IPs
-- Enrich IPs with passive port and hostname data
-- Build organization summaries from target-site public pages
-- Deduplicate and normalize records
+- resolve discovered hostnames to IPs
+- enrich IPs with passive port/service signals
+- extend passive website context
 
-Future upgrade path:
+### Intelligence Engine
 
-- BullMQ or a similar queue backed by Redis
-- Scheduled refresh jobs
-- User-triggered background collections
+The intelligence layer is the core product differentiator.
 
-## Caching Strategy
+Current responsibilities:
 
-An in-memory TTL cache reduces repeat calls and keeps the experience fast during iterative recon. Redis is the natural next step for shared caching and rate-limit protection once the project grows beyond a single process.
+- risk scoring
+- severity/risk labeling
+- historical CVE reference mapping
+- subdomain takeover heuristics
+- endpoint-interest detection
+- missing security-header findings
+- "where to look" suggestions
+- graph generation
 
-## Frontend Design
+### Cache Provider
 
-The interface is optimized for quick scanning:
+ReconPulse uses a provider abstraction instead of hardcoding caching logic.
 
-- Command-style search bar
-- Operator hints
-- Dense but readable result cards
-- Website OSINT panel for public company and leadership signals
-- Persistent local history for repeated target pivots
-- Dark theme with terminal-inspired accents
+Implemented providers:
 
-## Data Model Direction
+- in-memory TTL cache
+- Redis cache when `REDIS_URL` is configured
 
-The current MVP returns normalized JSON to the frontend and stores history locally in the browser. A production-ready version can add PostgreSQL with tables such as:
+### Job Runner
 
-- `users`
-- `saved_searches`
-- `saved_exports`
-- `search_jobs`
-- `source_observations`
+Recon jobs can run either:
+
+- synchronously through `GET /api/search`
+- asynchronously through `POST /api/recon/jobs`
+
+Implemented runners:
+
+- in-process memory worker
+- BullMQ worker when `REDIS_URL` is configured
+
+## Frontend Workbench
+
+The frontend is designed around a researcher’s daily loop:
+
+- enter advanced query
+- review high-probability targets first
+- inspect findings and where-to-look suggestions
+- pivot through the graph
+- replay searches from local history
+- run the async pipeline when a longer collection is useful
+
+Primary surfaces:
+
+- command bar
+- ranked target cards
+- website fingerprint panel
+- graph view
+- pipeline progress panel
+- local history
+
+## Scaling Direction
+
+Near-term scale path:
+
+- Redis shared cache
+- BullMQ workers
+- Meilisearch or Elasticsearch index provider
+- background monitoring jobs
+- collaborative workspaces and export/reporting API
 
 ## Security and Ethics
 
-- Passive, public data sources only
-- Clear disclaimer in the UI and API responses
-- No active scanning or intrusion logic
-- Designed for authorized security research and asset discovery
-- Public people data is limited to what the target website itself exposes and may be incomplete
+- passive, public data sources only
+- no active scanning or intrusive probing in the current product
+- clear disclaimer in API and UI
+- public people data is limited to what the target website itself exposes and may be incomplete
+- CVE references are treated as validation leads, not proof of exploitability

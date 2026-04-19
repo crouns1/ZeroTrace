@@ -37,6 +37,7 @@ export class GoogleDnsSource implements SearchSource {
     ]);
 
     const ipSet = new Set<string>();
+    const cnameTargets = new Set<string>();
     const relatedAssets: SourceResult["relatedAssets"] = [];
 
     for (const answer of [...aRecords, ...aaaaRecords]) {
@@ -52,9 +53,11 @@ export class GoogleDnsSource implements SearchSource {
         continue;
       }
 
+      const cname = answer.data.replace(/\.$/, "");
+      cnameTargets.add(cname);
       relatedAssets?.push({
         kind: "hostname",
-        value: answer.data.replace(/\.$/, ""),
+        value: cname,
         relation: `${target} resolves via CNAME`,
         source: this.id,
       });
@@ -65,6 +68,13 @@ export class GoogleDnsSource implements SearchSource {
       kind: preferredKind,
       sources: [this.id],
       ipAddresses: Array.from(ipSet),
+      cnameTargets: Array.from(cnameTargets),
+      dnsStatus:
+        ipSet.size > 0
+          ? "resolved"
+          : cnameTargets.size > 0
+            ? "cname-only"
+            : "unresolved",
     };
 
     const ipAddresses: IpAsset[] = Array.from(ipSet).map((address) => ({
@@ -74,6 +84,7 @@ export class GoogleDnsSource implements SearchSource {
       openPorts: [],
       tags: [],
       vulns: [],
+      cpes: [],
     }));
 
     return {

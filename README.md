@@ -1,46 +1,65 @@
-# Zero Trace
+# ReconPulse
 
-Zero Trace is a fast, hacker-friendly reconnaissance search engine for bug bounty hunters and security researchers. It aggregates passive OSINT data from public sources, normalizes results, and presents them in a dark dashboard built for fast triage and faster pivots.
+ReconPulse is a reconnaissance and bug bounty intelligence platform for security researchers who want signal, not noise. It turns passive public data into ranked targets, risk findings, tech fingerprints, graph relationships, and "where to look" suggestions that help users find bugs faster.
 
 ## Product Direction
 
-Zero Trace is intentionally narrow:
+ReconPulse is intentionally opinionated:
 
-- Not a general AI search assistant
-- Not a notebook workspace
-- Not a full enterprise threat intelligence suite
+- Prioritize actionable intelligence over raw data dumps
+- Rank assets by exploitability clues, not just discovery volume
+- Stay passive and legal by default
+- Make daily recon fast enough to live in a researcher’s browser all day
 
-It is the fastest path from target to passive asset map for authorized external recon.
+## What Ships Now
 
-## MVP Features
-
-- Advanced search operators: `domain:`, `subdomain:`, `ip:`
-- Passive aggregation from public certificate transparency, DNS, and IP enrichment sources
-- Structured results for domains, subdomains, IPs, open ports, and related assets
-- Public website OSINT for company summary, team pages, leadership signals, archive year hints, contacts, and social links
+- Advanced query language with chained filters such as:
+  - `domain:mozilla.org sort:risk limit:5`
+  - `domain:example.com port:443 risk:medium`
+  - `subdomain:docs.github.com status:investigate`
+  - `domain:example.com tech:wordpress`
+- Passive recon automation pipeline with:
+  - Subdomain discovery
+  - DNS/IP enrichment
+  - Public web fingerprinting
+  - Endpoint hints from `robots.txt`, `sitemap.xml`, and public pages
+  - Risk scoring and prioritization
+- Risk-ranked insights and high-probability targets
+- Tech stack fingerprinting with historical CVE references where relevant
+- Public website OSINT for company pages, public leadership/team listings, and archive-year hints
+- Graph-based attack surface view
+- Async recon jobs with polling
 - Browser-local search history
-- Modular backend source system for future expansion
-- Ethical-usage disclaimer in both the API response and frontend UI
+- Modular source adapters
+- Memory-first runtime with optional Redis + BullMQ scale path
+
+## Stack
+
+- Frontend: React + Tailwind + Vite
+- Backend: Express + TypeScript
+- Optional scale path: Redis + BullMQ
 
 ## Architecture
 
 The codebase is split into two workspaces:
 
-- `apps/api`: Express API with a query parser, source adapters, in-memory caching, and a lightweight enrichment worker
-- `apps/web`: React + Tailwind dashboard with a terminal-inspired search UX and local history persistence
+- `apps/api`: query parser, source adapters, passive recon pipeline, intelligence scoring, graph generation, async jobs, and cache abstraction
+- `apps/web`: hacker-centric workbench UI with advanced query entry, ranking panels, graph view, and live pipeline progress
 
-More detail is available in [docs/architecture.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/architecture.md).
-Competitive positioning is documented in [docs/competitive-analysis.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/competitive-analysis.md).
+More detail is available in [docs/architecture.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/architecture.md) and [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md).
 
 ## Data Sources Used
 
 - Cert Spotter CT Search API for certificate transparency lookups
 - Google Public DNS JSON API for passive DNS resolution
-- Shodan InternetDB for passive IP enrichment on `ip:` searches and resolved IPs
-- Target-website public pages for company/leadership/team/contact signals
+- Shodan InternetDB for passive IP/service enrichment
+- Target website public pages for:
+  - company/team/contact signals
+  - tech fingerprint clues
+  - public endpoint hints
 - Internet Archive CDX API as a best-effort source for earliest public archive year
 
-All sources used in this MVP are public/passive. Zero Trace does not perform active scanning.
+All current sources are passive/public. ReconPulse does not perform active scanning or intrusive probing.
 
 ## Quick Start
 
@@ -56,7 +75,7 @@ npm install
 npm run dev
 ```
 
-The apps run on:
+Default local ports:
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:4010`
@@ -67,34 +86,34 @@ The apps run on:
 npm run build
 ```
 
-## Example Queries
+## Optional Scaling Setup
 
-- `domain:example.com`
-- `subdomain:api.example.com`
-- `ip:8.8.8.8`
-- `example.com`
+If you want shared caching and a real worker queue, provide Redis:
 
-## MVP Notes
+```bash
+export REDIS_URL=redis://localhost:6379
+npm run dev
+```
 
-- Search history is intentionally stored in browser `localStorage` for zero-config local persistence.
-- The backend includes an in-memory TTL cache to reduce repeat calls to public sources.
-- The worker system is lightweight and promise-based for this MVP, making it easy to replace with a queue later.
-- PostgreSQL and Redis are documented as future-ready slots in the architecture, but are not required to run this initial version.
-- Website organization intelligence is best-effort and limited to public target-site content. Zero Trace does not scrape third-party employee networks to enumerate staff.
+Without `REDIS_URL`, ReconPulse uses in-memory cache and an in-process worker queue.
 
-## 2026 Quality Bar
+## API Highlights
 
-- Command-first UX instead of prompt-heavy UX
-- Structured recon output instead of generic summaries
-- Visible source provenance and repeatable pivots
-- Narrow scope with stronger defaults
+- `GET /api/search?q=domain:mozilla.org sort:risk`
+- `POST /api/recon/jobs` with JSON body `{ "q": "domain:mozilla.org sort:risk" }`
+- `GET /api/recon/jobs/:jobId`
+- `GET /health`
 
-Zero Trace is benchmarked against relevant Google peers in the competitive analysis doc:
+See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for more detail.
 
-- Google Search AI Mode
-- NotebookLM
-- Google Threat Intelligence / VirusTotal
+## Notes
 
-## Ethical Usage
+- Search history is stored in browser `localStorage`.
+- Website organization intelligence is best-effort and limited to public target-site content.
+- ReconPulse does not scrape third-party employee networks to enumerate staff.
+- Historical CVE references in the UI are meant to guide validation, not assert that a target is definitely vulnerable.
+- The indexing layer is intentionally documented as “Meilisearch-ready” while the current implementation uses an in-memory searchable model.
 
-Zero Trace is intended for defensive research, asset inventory, and authorized security work. Only use it against targets you are legally allowed to investigate. Public data does not remove the need for authorization.
+## Ethics
+
+ReconPulse is intended for defensive research, asset inventory, and authorized security work. Only use it against assets you are legally allowed to investigate. Public data does not remove the need for authorization.

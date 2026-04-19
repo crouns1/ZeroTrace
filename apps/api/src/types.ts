@@ -1,4 +1,10 @@
 export type SearchOperator = "domain" | "subdomain" | "ip" | "text";
+export type RiskLevel = "critical" | "high" | "medium" | "low";
+export type AssetStatus = "active" | "investigate" | "watch" | "stale";
+export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
+export type SortMode = "risk" | "ports" | "recent" | "alphabetical";
+export type PipelineStageStatus = "pending" | "running" | "completed" | "failed";
+export type ReconJobStatus = "queued" | "running" | "completed" | "failed";
 
 export interface ParsedQuery {
   raw: string;
@@ -8,8 +14,15 @@ export interface ParsedQuery {
     domain?: string;
     subdomain?: string;
     ip?: string;
+    port?: number;
+    status?: AssetStatus;
+    risk?: RiskLevel;
+    tech?: string;
+    sort?: SortMode;
+    limit?: number;
   };
   terms: string[];
+  recognizedFilters: string[];
 }
 
 export interface DomainAsset {
@@ -17,6 +30,9 @@ export interface DomainAsset {
   kind: "domain" | "subdomain";
   sources: string[];
   ipAddresses: string[];
+  cnameTargets: string[];
+  dnsStatus: "resolved" | "cname-only" | "unresolved" | "unknown";
+  httpStatus?: number;
   lastSeen?: string;
 }
 
@@ -27,6 +43,7 @@ export interface IpAsset {
   openPorts: number[];
   tags: string[];
   vulns: string[];
+  cpes: string[];
 }
 
 export interface PublicPerson {
@@ -57,11 +74,135 @@ export interface OrganizationProfile {
   sources: string[];
 }
 
+export interface TechFingerprint {
+  name: string;
+  category: "cms" | "framework" | "server" | "cdn" | "platform" | "language" | "service";
+  version?: string;
+  source: string;
+  confidence: "high" | "medium" | "low";
+  historicalCves: string[];
+  evidence?: string;
+}
+
+export interface EndpointAsset {
+  path: string;
+  url: string;
+  source: string;
+  kind: "robots" | "sitemap" | "common" | "public";
+}
+
+export interface SecurityHeaderObservation {
+  name: string;
+  present: boolean;
+  value?: string;
+}
+
+export interface WebsiteProfile {
+  baseUrl: string;
+  finalUrl?: string;
+  statusCode?: number;
+  server?: string;
+  poweredBy?: string;
+  titles: string[];
+  techStack: TechFingerprint[];
+  endpoints: EndpointAsset[];
+  securityHeaders: SecurityHeaderObservation[];
+  sources: string[];
+}
+
+export interface ExposureFinding {
+  id: string;
+  type:
+    | "open-port"
+    | "misconfiguration"
+    | "tech-cve"
+    | "takeover"
+    | "dns"
+    | "endpoint"
+    | "historical-vuln"
+    | "exposure";
+  title: string;
+  description: string;
+  severity: FindingSeverity;
+  evidence: string[];
+  source: string;
+}
+
+export interface WhereToLookSuggestion {
+  title: string;
+  reason: string;
+  confidence: "high" | "medium" | "low";
+}
+
 export interface RelatedAsset {
-  kind: "hostname" | "service" | "tag" | "certificate" | "person";
+  kind: "hostname" | "service" | "tag" | "certificate" | "person" | "endpoint" | "tech";
   value: string;
   relation: string;
   source: string;
+}
+
+export interface ReconInsight {
+  id: string;
+  label: string;
+  assetType: "domain" | "subdomain" | "ip";
+  hostname?: string;
+  ipAddress?: string;
+  hostnames: string[];
+  ipAddresses: string[];
+  openPorts: number[];
+  linkedServiceLabels: string[];
+  techStack: TechFingerprint[];
+  findings: ExposureFinding[];
+  whereToLook: WhereToLookSuggestion[];
+  riskScore: number;
+  riskLevel: RiskLevel;
+  status: AssetStatus;
+  likelyVulnerable: boolean;
+  sourceCount: number;
+  sources: string[];
+  lastSeen?: string;
+}
+
+export interface ReconGraphNode {
+  id: string;
+  label: string;
+  type: "domain" | "subdomain" | "ip" | "tech" | "person" | "endpoint";
+  riskLevel?: RiskLevel;
+  meta?: string;
+}
+
+export interface ReconGraphEdge {
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface ReconGraph {
+  nodes: ReconGraphNode[];
+  edges: ReconGraphEdge[];
+}
+
+export interface ReconPipelineStage {
+  id: string;
+  label: string;
+  description: string;
+  status: PipelineStageStatus;
+  itemsDiscovered: number;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+}
+
+export interface ReconPipeline {
+  mode: "sync" | "job";
+  status: PipelineStageStatus;
+  stages: ReconPipelineStage[];
+}
+
+export interface SearchPerformance {
+  cacheProvider: string;
+  jobProvider: string;
+  indexingProvider: string;
 }
 
 export interface SourceResult {
@@ -70,6 +211,7 @@ export interface SourceResult {
   subdomains?: DomainAsset[];
   ipAddresses?: IpAsset[];
   organization?: OrganizationProfile;
+  websiteProfile?: WebsiteProfile;
   relatedAssets?: RelatedAsset[];
   notes?: string[];
 }
@@ -80,6 +222,9 @@ export interface SearchResponse {
   subdomains: DomainAsset[];
   ipAddresses: IpAsset[];
   organization: OrganizationProfile | null;
+  websiteProfile: WebsiteProfile | null;
+  insights: ReconInsight[];
+  highProbabilityTargets: ReconInsight[];
   openPorts: Array<{
     ip: string;
     port: number;
@@ -88,6 +233,10 @@ export interface SearchResponse {
   relatedAssets: RelatedAsset[];
   sources: string[];
   notes: string[];
+  graph: ReconGraph;
+  pipeline: ReconPipeline;
+  suggestions: string[];
+  filtersApplied: string[];
   stats: {
     domainCount: number;
     subdomainCount: number;
@@ -95,16 +244,32 @@ export interface SearchResponse {
     peopleCount: number;
     portCount: number;
     relatedAssetCount: number;
+    insightCount: number;
+    highProbabilityCount: number;
   };
   metadata: {
     cached: boolean;
     durationMs: number;
     disclaimer: string;
   };
+  performance: SearchPerformance;
+  exportFormats: Array<"json" | "csv">;
 }
 
 export interface SearchSource {
   readonly id: string;
   supports(query: ParsedQuery): boolean;
   search(query: ParsedQuery): Promise<SourceResult>;
+}
+
+export interface ReconJob {
+  id: string;
+  query: string;
+  status: ReconJobStatus;
+  progress: number;
+  currentStage?: string;
+  createdAt: string;
+  updatedAt: string;
+  result?: SearchResponse;
+  error?: string;
 }

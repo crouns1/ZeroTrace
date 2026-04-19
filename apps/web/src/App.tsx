@@ -1,79 +1,27 @@
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
+import { GraphPanel } from "./components/GraphPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { InsightCard } from "./components/InsightCard";
+import { PipelinePanel } from "./components/PipelinePanel";
 import { ResultSection } from "./components/ResultSection";
 import { SearchBar } from "./components/SearchBar";
-import { searchQuery } from "./lib/api";
+import { getReconJob, searchQuery, startReconJob } from "./lib/api";
 import { loadHistory, saveHistory } from "./lib/history";
-import type { HistoryEntry, SearchResponse } from "./lib/types";
+import type { HistoryEntry, ReconJob, SearchResponse } from "./lib/types";
 
 const quickQueries = [
-  "domain:example.com",
-  "subdomain:api.example.com",
+  "domain:mozilla.org sort:risk",
+  "domain:example.com port:443 risk:medium",
+  "subdomain:docs.github.com status:investigate",
   "ip:8.8.8.8",
 ];
 
-const operatorGuides = [
-  {
-    label: "domain:",
-    title: "Apex mapping",
-    description: "Start with a root target and resolve it into hosts, CT evidence, IPs, and passive exposure.",
-  },
-  {
-    label: "subdomain:",
-    title: "Precision pivots",
-    description: "Investigate a single hostname when you already know the most interesting surface.",
-  },
-  {
-    label: "ip:",
-    title: "Passive host intel",
-    description: "Pull reverse hostnames, open ports, and tags without active scanning.",
-  },
+const queryExamples = [
+  "domain:example.com port:443 status:active risk:high",
+  "domain:mozilla.org tech:wordpress sort:risk",
+  "subdomain:api.example.com risk:medium",
+  "domain:example.com limit:5 sort:ports",
 ];
-
-const zeroTraceAdvantages = [
-  {
-    title: "Operator-first",
-    description: "Built around `domain:`, `subdomain:` and `ip:` rather than chat prompts or analyst-heavy forms.",
-  },
-  {
-    title: "Recon-native output",
-    description: "Returns domains, subdomains, IPs, ports, and related assets as first-class investigation objects.",
-  },
-  {
-    title: "Source-transparent",
-    description: "Every result keeps provenance visible so researchers can pivot fast and verify fast.",
-  },
-];
-
-const googlePeerBenchmarks = [
-  {
-    product: "Google Search AI Mode",
-    bestAt: "Broad reasoning, dynamic layouts, voice/live interaction, and web-scale query fan-out.",
-    zeroTraceEdge: "Zero Trace is narrower but much better aligned to recon workflows, structured asset discovery, and operator-driven pivots.",
-    fit: "Use Search AI Mode for wide exploration. Use Zero Trace when the job is passive asset mapping and triage.",
-  },
-  {
-    product: "NotebookLM",
-    bestAt: "Source-grounded research workspaces with generated notes, mind maps, audio, video, and slide outputs.",
-    zeroTraceEdge: "Zero Trace discovers internet-facing assets from public data; NotebookLM organizes sources you already have.",
-    fit: "Use NotebookLM after collection. Use Zero Trace before collection to find what to investigate.",
-  },
-  {
-    product: "Google Threat Intelligence / VirusTotal",
-    bestAt: "Threat intel depth, IOC reputation, actor context, malware visibility, and enterprise investigation workflows.",
-    zeroTraceEdge: "Zero Trace is faster and lighter for bug bounty recon where the goal is exposure discovery rather than full enterprise threat intelligence.",
-    fit: "Use GTI/VT for deep IOC validation and campaign context. Use Zero Trace for hacker-speed asset enumeration.",
-  },
-];
-
-const roadmapSignals = [
-  "Realtime source refresh and background enrichment workers",
-  "Saved views, exports, and collaborative investigations",
-  "Optional accounts, API keys, and premium source connectors",
-  "Custom query builder and programmable search pipelines",
-];
-
-const benchmarkReviewDate = "Benchmark reviewed against Google product docs on April 19, 2026.";
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
@@ -84,13 +32,7 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-function ExternalLinkCard({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
+function ExternalLinkChip({ href, label }: { href: string; label: string }) {
   return (
     <a className="mini-chip" href={href} rel="noreferrer" target="_blank">
       {label}
@@ -99,15 +41,50 @@ function ExternalLinkCard({
 }
 
 export default function App() {
-  const [query, setQuery] = useState("domain:example.com");
+  const [query, setQuery] = useState("domain:mozilla.org sort:risk");
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [activeJob, setActiveJob] = useState<ReconJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPipelineLoading, setIsPipelineLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
   }, []);
+
+  useEffect(() => {
+    if (!activeJob || (activeJob.status !== "queued" && activeJob.status !== "running")) {
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const nextJob = await getReconJob(activeJob.id);
+        setActiveJob(nextJob);
+
+        if (nextJob.status === "completed" && nextJob.result) {
+          const completedResult = nextJob.result;
+
+          startTransition(() => {
+            setResult(completedResult);
+            setHistory(saveHistory(nextJob.query, completedResult));
+          });
+          setIsPipelineLoading(false);
+        }
+
+        if (nextJob.status === "failed") {
+          setError(nextJob.error ?? "Recon job failed.");
+          setIsPipelineLoading(false);
+        }
+      } catch (jobError) {
+        setError(jobError instanceof Error ? jobError.message : "Could not refresh recon job.");
+        setIsPipelineLoading(false);
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timeout);
+  }, [activeJob]);
 
   async function executeSearch(nextQuery: string) {
     const normalized = nextQuery.trim();
@@ -121,9 +98,11 @@ export default function App() {
 
     try {
       const nextResult = await searchQuery(normalized);
-      setResult(nextResult);
-      setQuery(normalized);
-      setHistory(saveHistory(normalized, nextResult));
+      startTransition(() => {
+        setResult(nextResult);
+        setQuery(normalized);
+        setHistory(saveHistory(normalized, nextResult));
+      });
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : "Search failed.");
     } finally {
@@ -131,81 +110,99 @@ export default function App() {
     }
   }
 
+  async function launchPipeline(nextQuery: string) {
+    const normalized = nextQuery.trim();
+
+    if (!normalized) {
+      return;
+    }
+
+    setIsPipelineLoading(true);
+    setError(null);
+
+    try {
+      const job = await startReconJob(normalized);
+      setActiveJob(job);
+    } catch (jobError) {
+      setError(jobError instanceof Error ? jobError.message : "Could not start recon pipeline.");
+      setIsPipelineLoading(false);
+    }
+  }
+
+  const displayResult = activeJob?.result ?? result;
+
   return (
     <div className="min-h-screen px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <main className="mx-auto max-w-7xl space-y-6">
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_420px]">
+      <main className="mx-auto max-w-[1600px] space-y-6">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_430px]">
           <div className="panel hero-panel">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="badge">2026 Recon Workbench</div>
+              <div className="badge">ReconPulse Intelligence Platform</div>
               <div className="mission-pill">
                 <span className="status-dot" />
-                Passive. Fast. Operator-first.
+                Daily recon. Higher signal.
               </div>
             </div>
 
-            <div className="mt-6 max-w-4xl">
+            <div className="mt-6 max-w-5xl">
               <h1 className="title-glow text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">
-                Zero Trace
+                ReconPulse
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-                The specialized search engine for bug bounty hunters and security researchers who
-                need structured passive recon, not generic AI summaries. Query public sources,
-                pivot through exposure signals, and move from target to investigation in seconds.
+              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
+                A hacker-centric reconnaissance workbench that turns passive OSINT into actionable
+                target intelligence. Score assets, fingerprint tech, map the graph, and prioritize
+                where to look next.
               </p>
             </div>
 
             <div className="mt-8">
               <SearchBar
                 isLoading={isLoading}
+                isPipelineLoading={isPipelineLoading}
+                onLaunchPipeline={launchPipeline}
                 onQueryChange={setQuery}
                 onSearch={executeSearch}
                 query={query}
               />
             </div>
 
-            <div className="mt-6 grid gap-3 lg:grid-cols-3">
-              {operatorGuides.map((guide) => (
-                <article className="operator-card" key={guide.label}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="mono text-sm text-emerald-300">{guide.label}</span>
-                    <span className="tag">{guide.title}</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-400">{guide.description}</p>
-                </article>
+            <div className="mt-6 grid gap-3 lg:grid-cols-4">
+              {quickQueries.map((example) => (
+                <button
+                  className="operator-card text-left"
+                  key={example}
+                  onClick={() => {
+                    setQuery(example);
+                    void executeSearch(example);
+                  }}
+                  type="button"
+                >
+                  <div className="mono text-sm text-emerald-300">{example}</div>
+                  <p className="mt-3 text-sm leading-6 text-slate-400">
+                    Quick pivot for the new query language and scoring workflow.
+                  </p>
+                </button>
               ))}
             </div>
 
             <div className="mission-strip mt-6 grid gap-3 md:grid-cols-3">
               <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Why now</div>
+                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Core philosophy</div>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Search is getting more agentic in 2026, but recon still needs terse, source-aware, structured output.
+                  Prioritize actionable intelligence over raw volume. Every screen should answer: where is the bug?
                 </p>
               </div>
               <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">How we win</div>
+                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Automation</div>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Narrow scope, stronger defaults, and zero ambiguity about assets, ports, and pivots.
+                  Passive subdomain discovery, service enrichment, endpoint hints, scoring, and graph correlation in one pass.
                 </p>
               </div>
               <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Search templates</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {quickQueries.map((quickQuery) => (
-                    <button
-                      className="chip-button"
-                      key={quickQuery}
-                      onClick={() => {
-                        setQuery(quickQuery);
-                        void executeSearch(quickQuery);
-                      }}
-                      type="button"
-                    >
-                      {quickQuery}
-                    </button>
-                  ))}
-                </div>
+                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Scale path</div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Memory-first locally, Redis/BullMQ-ready when you want background workers and shared caching.
+                </p>
               </div>
             </div>
           </div>
@@ -214,238 +211,162 @@ export default function App() {
             <section className="panel space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="mono text-xs uppercase tracking-[0.35em] text-cyan-300">
-                    Zero Trace Vs Google
-                  </p>
-                  <h2 className="mt-3 text-2xl font-semibold text-slate-50">Positioned to win on recon</h2>
+                  <p className="mono text-xs uppercase tracking-[0.35em] text-cyan-300">Advanced Query Language</p>
+                  <h2 className="mt-3 text-2xl font-semibold text-slate-50">Filter like a hunter</h2>
                 </div>
-                <span className="metric-pill">3 peers</span>
+                <span className="metric-pill">AQL</span>
               </div>
-
               <div className="space-y-3">
-                {googlePeerBenchmarks.map((peer) => (
-                  <article className="benchmark-card" key={peer.product}>
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-semibold text-slate-50">{peer.product}</h3>
-                      <span className="tag">Peer</span>
+                {queryExamples.map((example) => (
+                  <button
+                    className="history-item w-full text-left"
+                    key={example}
+                    onClick={() => {
+                      setQuery(example);
+                      void executeSearch(example);
+                    }}
+                    type="button"
+                  >
+                    <div className="mono text-sm text-slate-100">{example}</div>
+                    <div className="mt-2 text-xs leading-6 text-slate-400">
+                      Supports chaining by risk, port, tech, status, sorting, and limit.
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-400">
-                      <span className="text-slate-200">Best at:</span> {peer.bestAt}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-200/90">
-                      <span className="text-emerald-300">Zero Trace edge:</span> {peer.zeroTraceEdge}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      <span className="text-slate-200">Use split:</span> {peer.fit}
-                    </p>
-                  </article>
+                  </button>
                 ))}
               </div>
-
-              <p className="mono text-[11px] uppercase tracking-[0.24em] text-slate-500">
-                {benchmarkReviewDate}
-              </p>
             </section>
 
-            <section className="panel space-y-5">
-              <div>
-                <p className="mono text-xs uppercase tracking-[0.35em] text-emerald-300">
-                  Ethical Usage
-                </p>
-                <h2 className="mt-3 text-2xl font-semibold text-slate-50">Passive data only</h2>
-              </div>
-              <p className="text-sm leading-6 text-slate-300">
-                Zero Trace is built for authorized research, asset inventory, and defensive
-                discovery. It uses public passive sources and does not perform active scanning.
-              </p>
-              <div className="panel-outline rounded-2xl px-4 py-4 text-sm text-slate-400">
-                Public data still needs authorization. Validate scope before investigating targets.
-              </div>
-              {result ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <StatCard label="Response" value={`${result.metadata.durationMs} ms`} />
-                  <StatCard label="Sources" value={result.sources.length} />
-                </div>
-              ) : null}
-            </section>
+            <PipelinePanel job={activeJob} pipeline={displayResult?.pipeline ?? null} />
           </div>
         </section>
 
         {error ? <div className="error-banner">{error}</div> : null}
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_420px]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_430px]">
           <div className="space-y-6">
-            <section className="panel space-y-5">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="mono text-xs uppercase tracking-[0.32em] text-amber-300">
-                    Product Thesis
-                  </p>
-                  <h2 className="mt-3 text-2xl font-semibold text-slate-50">
-                    The fastest path from target to passive asset map
-                  </h2>
-                </div>
-                <span className="metric-pill">2026 bar</span>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {zeroTraceAdvantages.map((advantage) => (
-                  <article className="spotlight-card" key={advantage.title}>
-                    <h3 className="text-base font-semibold text-slate-50">{advantage.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-slate-400">{advantage.description}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            {result ? (
+            {displayResult ? (
               <>
                 <section className="panel space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="mono text-xs uppercase tracking-[0.32em] text-cyan-300">
-                        Mission Control
-                      </p>
+                      <p className="mono text-xs uppercase tracking-[0.32em] text-rose-300">Priority Board</p>
                       <h2 className="mt-3 text-2xl font-semibold text-slate-50">
-                        Query: {result.query.raw}
+                        High probability targets
                       </h2>
                     </div>
-                    <span className="metric-pill">
-                      {result.metadata.cached ? "cache hit" : "live fetch"}
-                    </span>
+                    <span className="metric-pill">{displayResult.stats.highProbabilityCount} ranked</span>
                   </div>
 
-                  <div className="mission-strip grid gap-3 md:grid-cols-4">
-                    <div className="mission-cell">
-                      <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Operator</div>
-                      <p className="mt-2 text-sm text-slate-200">{result.query.operator}</p>
-                    </div>
-                    <div className="mission-cell">
-                      <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Source Graph</div>
-                      <p className="mt-2 text-sm text-slate-200">{result.sources.join(" · ")}</p>
-                    </div>
-                    <div className="mission-cell">
-                      <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Disclaimer</div>
-                      <p className="mt-2 text-sm text-slate-200">{result.metadata.disclaimer}</p>
-                    </div>
-                    <div className="mission-cell">
-                      <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Terms</div>
-                      <p className="mt-2 text-sm text-slate-200">{result.query.terms.join(" · ")}</p>
-                    </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+                    <StatCard label="Insights" value={displayResult.stats.insightCount} />
+                    <StatCard label="High Probability" value={displayResult.stats.highProbabilityCount} />
+                    <StatCard label="Subdomains" value={displayResult.stats.subdomainCount} />
+                    <StatCard label="IPs" value={displayResult.stats.ipCount} />
+                    <StatCard label="Open Ports" value={displayResult.stats.portCount} />
+                    <StatCard label="People" value={displayResult.stats.peopleCount} />
+                  </div>
+
+                  <div className="space-y-4">
+                    {(displayResult.highProbabilityTargets.length > 0
+                      ? displayResult.highProbabilityTargets
+                      : displayResult.insights.slice(0, 4)
+                    ).map((insight) => (
+                      <InsightCard insight={insight} key={insight.id} />
+                    ))}
                   </div>
                 </section>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                  <StatCard label="Domains" value={result.stats.domainCount} />
-                  <StatCard label="Subdomains" value={result.stats.subdomainCount} />
-                  <StatCard label="IPs" value={result.stats.ipCount} />
-                  <StatCard label="People" value={result.stats.peopleCount} />
-                  <StatCard label="Open Ports" value={result.stats.portCount} />
-                  <StatCard label="Related Assets" value={result.stats.relatedAssetCount} />
-                </div>
+                <GraphPanel graph={displayResult.graph} />
 
-                {result.organization ? (
+                <ResultSection
+                  count={displayResult.insights.length}
+                  eyebrow={`Filters applied: ${displayResult.filtersApplied.join(" · ") || "none"}`}
+                  title="All Ranked Targets"
+                >
+                  <div className="space-y-4">
+                    {displayResult.insights.map((insight) => (
+                      <InsightCard insight={insight} key={insight.id} />
+                    ))}
+                  </div>
+                </ResultSection>
+
+                {displayResult.organization || displayResult.websiteProfile ? (
                   <ResultSection
-                    count={result.organization.people.length}
-                    eyebrow="Public organization intelligence"
-                    title="Website OSINT"
+                    count={
+                      (displayResult.websiteProfile?.techStack.length ?? 0) +
+                      (displayResult.websiteProfile?.endpoints.length ?? 0)
+                    }
+                    eyebrow="Public web intelligence"
+                    title="Website fingerprint"
                   >
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.9fr)]">
                       <article className="asset-card space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <h3 className="text-xl font-semibold text-slate-50">
-                              {result.organization.name ?? result.organization.website}
+                              {displayResult.organization?.name ??
+                                displayResult.websiteProfile?.baseUrl ??
+                                "Website profile"}
                             </h3>
-                            <p className="mt-2 text-sm text-slate-400">{result.organization.website}</p>
+                            <p className="mt-2 text-sm text-slate-400">
+                              {displayResult.organization?.summary ?? "Passive website intelligence collected from public pages only."}
+                            </p>
                           </div>
-                          <span className="tag">Website profile</span>
+                          <span className="tag">Web Intel</span>
                         </div>
-
-                        {result.organization.summary ? (
-                          <p className="text-sm leading-7 text-slate-300">{result.organization.summary}</p>
-                        ) : null}
 
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="mission-cell">
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Founded year
-                            </div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Founded year</div>
                             <div className="mt-2 text-sm text-slate-200">
-                              {result.organization.foundedYear ?? "Not confirmed"}
+                              {displayResult.organization?.foundedYear ?? "Not confirmed"}
                             </div>
                           </div>
                           <div className="mission-cell">
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Earliest archive year
-                            </div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Archive hint</div>
                             <div className="mt-2 text-sm text-slate-200">
-                              {result.organization.earliestArchiveYear ?? "Not detected"}
+                              {displayResult.organization?.earliestArchiveYear ?? "Not detected"}
                             </div>
                           </div>
                           <div className="mission-cell">
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Location
-                            </div>
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Server</div>
                             <div className="mt-2 text-sm text-slate-200">
-                              {result.organization.location ?? "Not detected"}
+                              {displayResult.websiteProfile?.server ?? "Not exposed"}
                             </div>
                           </div>
                           <div className="mission-cell">
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Generator
-                            </div>
-                            <div className="mt-2 break-all text-sm text-slate-200">
-                              {result.organization.generator ?? "Not detected"}
+                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Powered by</div>
+                            <div className="mt-2 text-sm text-slate-200">
+                              {displayResult.websiteProfile?.poweredBy ?? "Not exposed"}
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-3">
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Emails
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {result.organization.emails.length > 0 ? (
-                                result.organization.emails.map((email) => (
-                                  <span className="mini-chip" key={email}>
-                                    {email}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-xs text-slate-500">None detected</span>
-                              )}
-                            </div>
+                        <div>
+                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Tech stack</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {displayResult.websiteProfile?.techStack.length ? (
+                              displayResult.websiteProfile.techStack.map((technology) => (
+                                <span className="mini-chip" key={`${technology.name}-${technology.source}`}>
+                                  {technology.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500">No web fingerprint captured</span>
+                            )}
                           </div>
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Phones
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {result.organization.phones.length > 0 ? (
-                                result.organization.phones.map((phone) => (
-                                  <span className="mini-chip" key={phone}>
-                                    {phone}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-xs text-slate-500">None detected</span>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Source pages
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {result.organization.relevantPages.length > 0 ? (
-                                result.organization.relevantPages.map((page) => (
-                                  <ExternalLinkCard href={page.url} key={page.url} label={page.label} />
-                                ))
-                              ) : (
-                                <span className="text-xs text-slate-500">No pages detected</span>
-                              )}
-                            </div>
+                        </div>
+
+                        <div>
+                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Interesting endpoints</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {displayResult.websiteProfile?.endpoints.length ? (
+                              displayResult.websiteProfile.endpoints.slice(0, 12).map((endpoint) => (
+                                <ExternalLinkChip href={endpoint.url} key={endpoint.url} label={endpoint.path} />
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500">No endpoint hints</span>
+                            )}
                           </div>
                         </div>
                       </article>
@@ -453,60 +374,36 @@ export default function App() {
                       <article className="asset-card space-y-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <h3 className="text-lg font-semibold text-slate-50">Public team and leadership</h3>
+                            <h3 className="text-lg font-semibold text-slate-50">Public people & pages</h3>
                             <p className="mt-2 text-sm text-slate-400">
-                              Best-effort extraction from the target website only. Not exhaustive.
+                              Limited to what the target website publishes directly.
                             </p>
                           </div>
-                          <span className="metric-pill">{result.organization.people.length}</span>
+                          <span className="metric-pill">{displayResult.organization?.people.length ?? 0}</span>
                         </div>
 
                         <div className="space-y-3">
-                          {result.organization.people.length > 0 ? (
-                            result.organization.people.map((person) => (
+                          {displayResult.organization?.people.length ? (
+                            displayResult.organization.people.slice(0, 10).map((person) => (
                               <div className="history-item" key={`${person.name}-${person.role ?? ""}`}>
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <div className="mono text-sm text-slate-50">{person.name}</div>
-                                    <div className="mt-2 text-xs text-slate-400">
-                                      {person.role ?? "Public profile detected"}
-                                    </div>
-                                  </div>
-                                  {person.sourcePage ? (
-                                    <a
-                                      className="tag"
-                                      href={person.sourcePage}
-                                      rel="noreferrer"
-                                      target="_blank"
-                                    >
-                                      Source
-                                    </a>
-                                  ) : null}
-                                </div>
+                                <div className="mono text-sm text-slate-50">{person.name}</div>
+                                <div className="mt-2 text-xs text-slate-400">{person.role ?? "Public listing"}</div>
                               </div>
                             ))
                           ) : (
-                            <p className="text-sm text-slate-400">
-                              No public employee or manager profiles were detected on the target site.
-                            </p>
+                            <p className="text-sm text-slate-400">No public team listings detected on the target site.</p>
                           )}
                         </div>
 
                         <div>
-                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                            Social links
-                          </div>
+                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Relevant pages</div>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {result.organization.socialLinks.length > 0 ? (
-                              result.organization.socialLinks.map((link) => (
-                                <ExternalLinkCard
-                                  href={link}
-                                  key={link}
-                                  label={new URL(link).hostname.replace(/^www\./, "")}
-                                />
+                            {displayResult.organization?.relevantPages.length ? (
+                              displayResult.organization.relevantPages.map((page) => (
+                                <ExternalLinkChip href={page.url} key={page.url} label={page.label} />
                               ))
                             ) : (
-                              <span className="text-xs text-slate-500">No public social links detected</span>
+                              <span className="text-xs text-slate-500">No organization pages</span>
                             )}
                           </div>
                         </div>
@@ -514,143 +411,20 @@ export default function App() {
                     </div>
                   </ResultSection>
                 ) : null}
-
-                <ResultSection
-                  count={result.domains.length + result.subdomains.length}
-                  eyebrow={`Operator: ${result.query.operator}`}
-                  title="Discovered Hosts"
-                >
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {[...result.domains, ...result.subdomains].map((asset) => (
-                      <article className="asset-card" key={asset.hostname}>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="mono text-sm text-slate-50">{asset.hostname}</span>
-                          <span className="tag">{asset.kind}</span>
-                        </div>
-                        <div className="mt-3 text-xs text-slate-400">
-                          Sources: {asset.sources.join(", ")}
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {asset.ipAddresses.length > 0 ? (
-                            asset.ipAddresses.map((ip) => (
-                              <span className="mini-chip" key={ip}>
-                                {ip}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-xs text-slate-500">Awaiting IP enrichment</span>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </ResultSection>
-
-                <ResultSection count={result.ipAddresses.length} eyebrow="Passive enrichment" title="IP Intelligence">
-                  <div className="space-y-3">
-                    {result.ipAddresses.map((asset) => (
-                      <article className="asset-card" key={asset.address}>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="mono text-base text-slate-50">{asset.address}</span>
-                          {asset.openPorts.map((port) => (
-                            <span className="mini-chip" key={`${asset.address}-${port}`}>
-                              {port}/tcp
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-3 grid gap-3 text-sm text-slate-400 md:grid-cols-3">
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Hostnames
-                            </div>
-                            <div className="mt-2 break-all">{asset.hostnames.join(", ") || "None"}</div>
-                          </div>
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              Tags
-                            </div>
-                            <div className="mt-2 break-all">{asset.tags.join(", ") || "None"}</div>
-                          </div>
-                          <div>
-                            <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">
-                              CVEs
-                            </div>
-                            <div className="mt-2 break-all">{asset.vulns.join(", ") || "None"}</div>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </ResultSection>
-
-                <ResultSection count={result.openPorts.length} eyebrow="Structured output" title="Open Ports">
-                  <div className="flex flex-wrap gap-2">
-                    {result.openPorts.length > 0 ? (
-                      result.openPorts.map((entry) => (
-                        <span className="mini-chip" key={`${entry.ip}-${entry.port}`}>
-                          {entry.port}/tcp on {entry.ip}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-400">No passive open-port data returned for this search.</p>
-                    )}
-                  </div>
-                </ResultSection>
-
-                <ResultSection count={result.relatedAssets.length} eyebrow="Pivot material" title="Related Assets">
-                  <div className="space-y-3">
-                    {result.relatedAssets.length > 0 ? (
-                      result.relatedAssets.map((asset) => (
-                        <article className="asset-card" key={`${asset.kind}-${asset.value}-${asset.relation}`}>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="mono text-sm text-slate-50">{asset.value}</span>
-                            <span className="tag">{asset.kind}</span>
-                          </div>
-                          <p className="mt-3 text-sm text-slate-400">{asset.relation}</p>
-                          <div className="mt-3 mono text-xs text-slate-500">source: {asset.source}</div>
-                        </article>
-                      ))
-                    ) : (
-                      <p className="text-sm text-slate-400">No related assets discovered yet.</p>
-                    )}
-                  </div>
-                </ResultSection>
               </>
             ) : (
               <>
                 <section className="panel space-y-4">
                   <div className="badge">Ready</div>
                   <h2 className="text-3xl font-semibold text-slate-50">
-                    Run your first passive recon query
+                    Start with a target and let the intelligence layer do the ranking
                   </h2>
-                  <p className="max-w-2xl text-sm leading-7 text-slate-400">
-                    Start with a target domain or IP, then use the resulting hosts, IPs, and
-                    related assets to pivot deeper. The UI is intentionally dense where it matters
-                    and quiet everywhere else.
+                  <p className="max-w-3xl text-sm leading-7 text-slate-400">
+                    ReconPulse automatically collects passive signals, scores risky assets, surfaces likely takeover candidates or exposed services, and tells you where to look next.
                   </p>
                 </section>
 
-                <section className="panel space-y-4">
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <p className="mono text-xs uppercase tracking-[0.32em] text-cyan-300">
-                        2026 Roadmap
-                      </p>
-                      <h2 className="mt-3 text-2xl font-semibold text-slate-50">
-                        What moves this from MVP to category leader
-                      </h2>
-                    </div>
-                    <span className="metric-pill">Next</span>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {roadmapSignals.map((item) => (
-                      <article className="roadmap-item" key={item}>
-                        <div className="status-dot mt-1" />
-                        <p className="text-sm leading-6 text-slate-300">{item}</p>
-                      </article>
-                    ))}
-                  </div>
-                </section>
+                <GraphPanel graph={{ nodes: [], edges: [] }} />
               </>
             )}
           </div>
@@ -665,62 +439,63 @@ export default function App() {
             />
 
             <section className="panel space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                  Source Registry
-                </h2>
-                <span className="mono text-xs text-slate-500">
-                  {result ? result.sources.length : 3} adapters
-                </span>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="mono text-xs uppercase tracking-[0.32em] text-slate-500">Why it helps daily</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-50">Where to look</h2>
+                </div>
+                <span className="metric-pill">{displayResult?.suggestions.length ?? 0}</span>
               </div>
               <div className="space-y-3">
-                {(result?.sources ?? ["certspotter", "google-dns", "internetdb"]).map((source) => (
-                  <div className="history-item" key={source}>
-                    <div className="mono text-sm text-slate-50">{source}</div>
-                    <p className="mt-2 text-xs leading-6 text-slate-400">
-                      Modular passive source adapter participating in the current search pipeline.
-                    </p>
-                  </div>
-                ))}
+                {displayResult?.suggestions.length ? (
+                  displayResult.suggestions.map((suggestion) => (
+                    <div className="history-item" key={suggestion}>
+                      <div className="text-sm text-slate-200">{suggestion}</div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    Suggestions appear once ReconPulse has enough signal to rank a target confidently.
+                  </p>
+                )}
               </div>
             </section>
 
             <section className="panel space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                  Why It Feels Better
-                </h2>
-                <span className="mono text-xs text-slate-500">Product quality</span>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="mono text-xs uppercase tracking-[0.32em] text-slate-500">Performance</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-50">Cache, queue, index</h2>
+                </div>
+                <span className="metric-pill">Scale path</span>
               </div>
               <div className="space-y-3">
                 <div className="history-item">
-                  <div className="mono text-sm text-slate-50">Less promptcraft</div>
+                  <div className="mono text-sm text-slate-50">Cache</div>
                   <p className="mt-2 text-xs leading-6 text-slate-400">
-                    Researchers should not negotiate with a chatbot just to enumerate passive exposure.
+                    {displayResult?.performance.cacheProvider ?? "memory"} cache provider
                   </p>
                 </div>
                 <div className="history-item">
-                  <div className="mono text-sm text-slate-50">More provenance</div>
+                  <div className="mono text-sm text-slate-50">Worker queue</div>
                   <p className="mt-2 text-xs leading-6 text-slate-400">
-                    Results show where signal came from so verification and pivots stay immediate.
+                    {displayResult?.performance.jobProvider ?? activeJob?.status ?? "memory-worker"} job provider
                   </p>
                 </div>
                 <div className="history-item">
-                  <div className="mono text-sm text-slate-50">Narrower, stronger focus</div>
+                  <div className="mono text-sm text-slate-50">Indexing</div>
                   <p className="mt-2 text-xs leading-6 text-slate-400">
-                    Zero Trace is not trying to replace general search, notebooks, or full threat intel suites.
+                    {displayResult?.performance.indexingProvider ?? "in-memory index (Meilisearch-ready)"}
                   </p>
                 </div>
               </div>
             </section>
 
-            {result?.notes.length ? (
+            {displayResult?.notes.length ? (
               <section className="panel space-y-4">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                  Notes
-                </h2>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">Notes</h2>
                 <div className="space-y-3">
-                  {result.notes.map((note) => (
+                  {displayResult.notes.map((note) => (
                     <div className="panel-outline rounded-2xl px-4 py-3 text-sm text-slate-400" key={note}>
                       {note}
                     </div>

@@ -63,6 +63,8 @@ export class CertSpotterSource implements SearchSource {
             kind,
             sources: [this.id],
             ipAddresses: [],
+            cnameTargets: [],
+            dnsStatus: "unknown",
             lastSeen: record.not_after,
           });
         } else if (!current.lastSeen && record.not_after) {

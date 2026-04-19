@@ -1,16 +1,16 @@
-# Zero Trace Competitive Analysis
+# ReconPulse Competitive Analysis
 
 Last reviewed: April 19, 2026
 
 ## Why These Google Peers Matter
 
-For Zero Trace, the meaningful Google comparisons are not generic productivity apps. They are:
+For ReconPulse, the meaningful Google comparisons are not generic productivity apps. They are:
 
 - Google Search AI Mode
 - NotebookLM
 - Google Threat Intelligence / VirusTotal
 
-These products overlap with Zero Trace on search, research, and investigation workflows, but they solve different problems.
+These products overlap with ReconPulse on search, research, and investigation workflows, but they solve different problems.
 
 ## Official Product Signals
 
@@ -55,17 +55,17 @@ Google also positions VirusTotal Enterprise as a deep threat investigation platf
 - Source: VirusTotal Enterprise for Threat Investigations
 - Link: https://cloud.google.com/security/resources/security-virus-total-enterprise
 
-## What This Means For Zero Trace
+## What This Means For ReconPulse
 
 This section is inference based on the official sources above.
 
-### Where Zero Trace Should Not Compete Head-On
+### Where ReconPulse Should Not Compete Head-On
 
-- Zero Trace should not try to beat Google Search AI Mode at broad reasoning, multimodal exploration, or general web discovery.
-- Zero Trace should not try to beat NotebookLM at source-grounded synthesis, document transformation, or media generation.
-- Zero Trace should not try to beat Google Threat Intelligence or VirusTotal at threat actor context, malware intelligence depth, or enterprise-scale IOC enrichment.
+- ReconPulse should not try to beat Google Search AI Mode at broad reasoning, multimodal exploration, or general web discovery.
+- ReconPulse should not try to beat NotebookLM at source-grounded synthesis, document transformation, or media generation.
+- ReconPulse should not try to beat Google Threat Intelligence or VirusTotal at threat actor context, malware intelligence depth, or enterprise-scale IOC enrichment.
 
-### Where Zero Trace Can Win
+### Where ReconPulse Can Win
 
 - Faster operator-first recon with explicit commands like `domain:`, `subdomain:`, and `ip:`
 - Immediate structured output for hosts, IPs, ports, and related passive assets
@@ -74,7 +74,7 @@ This section is inference based on the official sources above.
 
 ## Product Positioning
 
-Zero Trace should position itself as:
+ReconPulse should position itself as:
 
 > The fastest passive recon workbench for authorized external asset discovery.
 
@@ -84,11 +84,11 @@ That is stronger than:
 - “Google-style search for hackers”
 - “Lightweight VirusTotal”
 
-Because those descriptions either dilute the core workflow or compare Zero Trace to products with very different strengths.
+Because those descriptions either dilute the core workflow or compare ReconPulse to products with very different strengths.
 
 ## Product Bar For 2026
 
-To feel like a top-tier 2026 project, Zero Trace should emphasize:
+To feel like a top-tier 2026 project, ReconPulse should emphasize:
 
 - A command-first interface with almost no friction
 - Dense but legible structured results
@@ -103,4 +103,3 @@ To feel like a top-tier 2026 project, Zero Trace should emphasize:
 - Saved views and collaborator sharing
 - Optional accounts and premium source connectors
 - Investigator workspaces for comparing searches over time
-
