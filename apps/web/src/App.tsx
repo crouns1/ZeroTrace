@@ -133,77 +133,146 @@ export default function App() {
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <main className="mx-auto max-w-[1600px] space-y-6">
+      <main className="screen-shell mx-auto max-w-[1600px] space-y-6">
+        <header className="command-header">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="terminal-lights">
+              <span className="terminal-light terminal-red" />
+              <span className="terminal-light terminal-amber" />
+              <span className="terminal-light terminal-green" />
+            </div>
+            <div>
+              <p className="mono text-[11px] uppercase tracking-[0.35em] text-emerald-300">ReconPulse // Operator Console</p>
+              <h1 className="mt-2 text-lg font-semibold text-slate-50 sm:text-xl">
+                Passive recon intelligence for daily bug bounty work
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="console-chip">signal-first</span>
+            <span className="console-chip">keyboard-driven</span>
+            <span className="console-chip">
+              {displayResult?.performance.cacheProvider ?? "memory"} cache
+            </span>
+            <span className="console-chip">
+              {displayResult?.performance.jobProvider ?? "memory-worker"} worker
+            </span>
+          </div>
+        </header>
+
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_430px]">
           <div className="panel hero-panel">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="badge">ReconPulse Intelligence Platform</div>
-              <div className="mission-pill">
-                <span className="status-dot" />
-                Daily recon. Higher signal.
-              </div>
-            </div>
+            <div className="hero-grid">
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="badge">ReconPulse Intelligence Platform</div>
+                  <div className="mission-pill">
+                    <span className="status-dot" />
+                    Daily recon. Higher signal.
+                  </div>
+                </div>
 
-            <div className="mt-6 max-w-5xl">
-              <h1 className="title-glow text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">
-                ReconPulse
-              </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
-                A hacker-centric reconnaissance workbench that turns passive OSINT into actionable
-                target intelligence. Score assets, fingerprint tech, map the graph, and prioritize
-                where to look next.
-              </p>
-            </div>
-
-            <div className="mt-8">
-              <SearchBar
-                isLoading={isLoading}
-                isPipelineLoading={isPipelineLoading}
-                onLaunchPipeline={launchPipeline}
-                onQueryChange={setQuery}
-                onSearch={executeSearch}
-                query={query}
-              />
-            </div>
-
-            <div className="mt-6 grid gap-3 lg:grid-cols-4">
-              {quickQueries.map((example) => (
-                <button
-                  className="operator-card text-left"
-                  key={example}
-                  onClick={() => {
-                    setQuery(example);
-                    void executeSearch(example);
-                  }}
-                  type="button"
-                >
-                  <div className="mono text-sm text-emerald-300">{example}</div>
-                  <p className="mt-3 text-sm leading-6 text-slate-400">
-                    Quick pivot for the new query language and scoring workflow.
+                <div className="max-w-5xl">
+                  <h2 className="title-glow text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">
+                    Find bugs faster by cutting straight to risky surface area.
+                  </h2>
+                  <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
+                    A hacker-centric reconnaissance workbench that turns passive OSINT into ranked
+                    targets, live graph pivots, tech clues, and concrete places to inspect next.
                   </p>
-                </button>
-              ))}
-            </div>
+                </div>
 
-            <div className="mission-strip mt-6 grid gap-3 md:grid-cols-3">
-              <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Core philosophy</div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Prioritize actionable intelligence over raw volume. Every screen should answer: where is the bug?
-                </p>
+                <div className="terminal-panel">
+                  <SearchBar
+                    isLoading={isLoading}
+                    isPipelineLoading={isPipelineLoading}
+                    onLaunchPipeline={launchPipeline}
+                    onQueryChange={setQuery}
+                    onSearch={executeSearch}
+                    query={query}
+                  />
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-4">
+                  {quickQueries.map((example) => (
+                    <button
+                      className="operator-card text-left"
+                      key={example}
+                      onClick={() => {
+                        setQuery(example);
+                        void executeSearch(example);
+                      }}
+                      type="button"
+                    >
+                      <div className="mono text-sm text-emerald-300">{example}</div>
+                      <p className="mt-3 text-sm leading-6 text-slate-400">
+                        Quick pivot for the query language and scoring workflow.
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Automation</div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Passive subdomain discovery, service enrichment, endpoint hints, scoring, and graph correlation in one pass.
-                </p>
-              </div>
-              <div className="mission-cell">
-                <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Scale path</div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Memory-first locally, Redis/BullMQ-ready when you want background workers and shared caching.
-                </p>
-              </div>
+
+              <aside className="hero-aside">
+                <div className="telemetry-panel">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="mono text-[11px] uppercase tracking-[0.32em] text-slate-500">Live telemetry</p>
+                      <h3 className="mt-2 text-lg font-semibold text-slate-50">Current session</h3>
+                    </div>
+                    <span className="metric-pill">{displayResult?.metadata.cached ? "cache hit" : "live"}</span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="telemetry-cell">
+                      <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Latency</div>
+                      <div className="mt-2 text-2xl font-semibold text-slate-50">
+                        {displayResult ? `${displayResult.metadata.durationMs}ms` : "--"}
+                      </div>
+                    </div>
+                    <div className="telemetry-cell">
+                      <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Ranked assets</div>
+                      <div className="mt-2 text-2xl font-semibold text-slate-50">
+                        {displayResult?.stats.insightCount ?? 0}
+                      </div>
+                    </div>
+                    <div className="telemetry-cell">
+                      <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">High probability</div>
+                      <div className="mt-2 text-2xl font-semibold text-slate-50">
+                        {displayResult?.stats.highProbabilityCount ?? 0}
+                      </div>
+                    </div>
+                    <div className="telemetry-cell">
+                      <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Graph nodes</div>
+                      <div className="mt-2 text-2xl font-semibold text-slate-50">
+                        {displayResult?.graph.nodes.length ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mission-strip grid gap-3">
+                  <div className="mission-cell">
+                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Core philosophy</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Prioritize actionable intelligence over raw volume. Every screen should answer: where is the bug?
+                    </p>
+                  </div>
+                  <div className="mission-cell">
+                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Automation</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Passive subdomain discovery, service enrichment, endpoint hints, scoring, and graph correlation in one pass.
+                    </p>
+                  </div>
+                  <div className="mission-cell">
+                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Scale path</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Memory-first locally, Redis/BullMQ-ready when you want background workers and shared caching.
+                    </p>
+                  </div>
+                </div>
+              </aside>
             </div>
           </div>
 
@@ -273,6 +342,43 @@ export default function App() {
                     ).map((insight) => (
                       <InsightCard insight={insight} key={insight.id} />
                     ))}
+                  </div>
+                </section>
+
+                <section className="summary-deck">
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Applied filters</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {displayResult.filtersApplied.length > 0 ? (
+                        displayResult.filtersApplied.map((filter) => (
+                          <span className="mini-chip" key={filter}>
+                            {filter}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-500">none</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Export</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {displayResult.exportFormats.map((format) => (
+                        <span className="mini-chip" key={format}>
+                          {format}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Sources</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {displayResult.sources.map((source) => (
+                        <span className="mini-chip" key={source}>
+                          {source}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </section>
 
@@ -422,6 +528,21 @@ export default function App() {
                   <p className="max-w-3xl text-sm leading-7 text-slate-400">
                     ReconPulse automatically collects passive signals, scores risky assets, surfaces likely takeover candidates or exposed services, and tells you where to look next.
                   </p>
+                </section>
+
+                <section className="summary-deck">
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Mode</p>
+                    <div className="mt-2 text-lg font-semibold text-slate-50">Passive recon</div>
+                  </div>
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Views</p>
+                    <div className="mt-2 text-lg font-semibold text-slate-50">Rank · Graph · Pipeline</div>
+                  </div>
+                  <div className="summary-card">
+                    <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Designed for</p>
+                    <div className="mt-2 text-lg font-semibold text-slate-50">Bug bounty hunters</div>
+                  </div>
                 </section>
 
                 <GraphPanel graph={{ nodes: [], edges: [] }} />

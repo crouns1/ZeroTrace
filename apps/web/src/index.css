@@ -45,6 +45,99 @@ body::before {
   z-index: 1;
 }
 
+.screen-shell {
+  position: relative;
+  border: 1px solid rgba(125, 211, 252, 0.08);
+  border-radius: 2rem;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.04)),
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.05), transparent 42%);
+  box-shadow:
+    0 40px 120px rgba(2, 6, 23, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.screen-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+  background-size: 120px 120px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.12));
+}
+
+.command-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: 1.6rem;
+  padding: 1rem 1.1rem;
+  background:
+    linear-gradient(180deg, rgba(6, 12, 20, 0.92), rgba(7, 14, 22, 0.68)),
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.06), transparent 34%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.terminal-lights {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-right: 0.15rem;
+}
+
+.terminal-light {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 9999px;
+  box-shadow: 0 0 18px currentColor;
+}
+
+.terminal-red {
+  background: #fb7185;
+  color: rgba(251, 113, 133, 0.72);
+}
+
+.terminal-amber {
+  background: #fbbf24;
+  color: rgba(251, 191, 36, 0.7);
+}
+
+.terminal-green {
+  background: #4ade80;
+  color: rgba(74, 222, 128, 0.72);
+}
+
+.console-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(45, 212, 191, 0.16);
+  border-radius: 9999px;
+  background: rgba(5, 24, 24, 0.68);
+  color: #c7f9e8;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  padding: 0.48rem 0.78rem;
+  text-transform: uppercase;
+}
+
+.console-chip::before {
+  content: "";
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #34d399, #22d3ee);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.38);
+}
+
 .mono {
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
 }
@@ -90,6 +183,93 @@ body::before {
   border-radius: 9999px;
   background: radial-gradient(circle, var(--cool-glow), transparent 62%);
   pointer-events: none;
+}
+
+.hero-grid {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.95fr);
+}
+
+.hero-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.terminal-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(45, 212, 191, 0.14);
+  border-radius: 1.5rem;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(4, 11, 18, 0.94), rgba(7, 14, 22, 0.82)),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 34%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 24px 60px rgba(2, 6, 23, 0.32);
+}
+
+.terminal-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(45, 212, 191, 0.04), transparent 18%);
+}
+
+.terminal-panel .panel-outline {
+  position: relative;
+  border-color: rgba(45, 212, 191, 0.18);
+  background:
+    linear-gradient(180deg, rgba(5, 10, 16, 0.86), rgba(7, 14, 22, 0.58)),
+    radial-gradient(circle at right, rgba(34, 211, 238, 0.06), transparent 32%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 30px rgba(2, 6, 23, 0.24);
+}
+
+.telemetry-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, 0.14);
+  border-radius: 1.5rem;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(8, 15, 23, 0.84), rgba(7, 14, 22, 0.62)),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 34%);
+}
+
+.telemetry-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto -6% -22% auto;
+  width: 170px;
+  height: 170px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.12), transparent 64%);
+  pointer-events: none;
+}
+
+.telemetry-cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(100, 116, 139, 0.12);
+  background:
+    linear-gradient(180deg, rgba(7, 14, 22, 0.84), rgba(8, 15, 23, 0.58)),
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.05), transparent 32%);
+  padding: 0.95rem;
+}
+
+.telemetry-cell::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.96), rgba(34, 211, 238, 0.8));
 }
 
 .badge {
@@ -300,6 +480,21 @@ body::before {
   padding: 0.95rem;
 }
 
+.summary-deck {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-card {
+  border: 1px solid rgba(100, 116, 139, 0.14);
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(180deg, rgba(8, 15, 23, 0.8), rgba(7, 14, 22, 0.6)),
+    radial-gradient(circle at top right, rgba(45, 212, 191, 0.05), transparent 34%);
+  padding: 1rem;
+}
+
 .roadmap-item {
   display: flex;
   align-items: flex-start;
@@ -423,10 +618,36 @@ body::before {
   color: #fecaca;
 }
 
+@media (max-width: 1200px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .summary-deck {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
+  .screen-shell {
+    padding: 0.75rem;
+    border-radius: 1.5rem;
+  }
+
+  .command-header {
+    padding: 0.9rem 0.95rem;
+  }
+
   .panel {
     padding: 1.15rem;
     border-radius: 1.35rem;
+  }
+
+  .command-header,
+  .summary-deck {
+    gap: 0.8rem;
   }
 
   .mission-pill {
