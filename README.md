@@ -18,6 +18,8 @@ ReconPulse is intentionally opinionated:
   - `domain:example.com port:443 risk:medium`
   - `subdomain:docs.github.com status:investigate`
   - `domain:example.com tech:wordpress`
+  - `company:mozilla`
+  - plain-text public profile search such as `sundar pichai`
 - Passive recon automation pipeline with:
   - Subdomain discovery
   - DNS/IP enrichment
@@ -27,6 +29,7 @@ ReconPulse is intentionally opinionated:
 - Risk-ranked insights and high-probability targets
 - Tech stack fingerprinting with historical CVE references where relevant
 - Public website OSINT for company pages, public leadership/team listings, and archive-year hints
+- External public-profile enrichment for companies and notable people
 - Graph-based attack surface view
 - Async recon jobs with polling
 - Browser-local search history
@@ -53,6 +56,8 @@ More detail is available in [docs/architecture.md](/home/crouns/Desktop/futur_pr
 - Cert Spotter CT Search API for certificate transparency lookups
 - Google Public DNS JSON API for passive DNS resolution
 - Shodan InternetDB for passive IP/service enrichment
+- Wikidata search/entity APIs for public company and notable-person profile enrichment
+- GitHub public organization APIs for public org member and repository signals
 - Target website public pages for:
   - company/team/contact signals
   - tech fingerprint clues
@@ -110,7 +115,9 @@ See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for
 
 - Search history is stored in browser `localStorage`.
 - Website organization intelligence is best-effort and limited to public target-site content.
-- ReconPulse does not scrape third-party employee networks to enumerate staff.
+- External people/company enrichment is limited to public knowledge-graph and public organization-profile data.
+- ReconPulse does not scrape third-party employee networks or build private-person lookup workflows.
+- GitHub public organization members are shown as public profiles and should not be assumed to be a complete employee list.
 - Historical CVE references in the UI are meant to guide validation, not assert that a target is definitely vulnerable.
 - The indexing layer is intentionally documented as “Meilisearch-ready” while the current implementation uses an in-memory searchable model.
 

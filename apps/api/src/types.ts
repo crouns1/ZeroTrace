@@ -1,4 +1,4 @@
-export type SearchOperator = "domain" | "subdomain" | "ip" | "text";
+export type SearchOperator = "domain" | "subdomain" | "ip" | "text" | "company" | "person";
 export type RiskLevel = "critical" | "high" | "medium" | "low";
 export type AssetStatus = "active" | "investigate" | "watch" | "stale";
 export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
@@ -14,6 +14,8 @@ export interface ParsedQuery {
     domain?: string;
     subdomain?: string;
     ip?: string;
+    company?: string;
+    person?: string;
     port?: number;
     status?: AssetStatus;
     risk?: RiskLevel;
@@ -72,6 +74,28 @@ export interface OrganizationProfile {
   relevantPages: OrganizationPage[];
   people: PublicPerson[];
   sources: string[];
+}
+
+export interface ExternalProfileFact {
+  label: string;
+  value: string;
+  href?: string;
+}
+
+export interface ExternalIntelProfile {
+  id: string;
+  kind: "company" | "person";
+  name: string;
+  description?: string;
+  summary?: string;
+  website?: string;
+  aliases: string[];
+  facts: ExternalProfileFact[];
+  people: PublicPerson[];
+  links: OrganizationPage[];
+  notes: string[];
+  source: string;
+  confidence: "high" | "medium" | "low";
 }
 
 export interface TechFingerprint {
@@ -212,6 +236,7 @@ export interface SourceResult {
   ipAddresses?: IpAsset[];
   organization?: OrganizationProfile;
   websiteProfile?: WebsiteProfile;
+  externalProfiles?: ExternalIntelProfile[];
   relatedAssets?: RelatedAsset[];
   notes?: string[];
 }
@@ -223,6 +248,7 @@ export interface SearchResponse {
   ipAddresses: IpAsset[];
   organization: OrganizationProfile | null;
   websiteProfile: WebsiteProfile | null;
+  externalProfiles: ExternalIntelProfile[];
   insights: ReconInsight[];
   highProbabilityTargets: ReconInsight[];
   openPorts: Array<{

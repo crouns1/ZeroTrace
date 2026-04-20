@@ -21,6 +21,8 @@ const queryExamples = [
   "domain:mozilla.org tech:wordpress sort:risk",
   "subdomain:api.example.com risk:medium",
   "domain:example.com limit:5 sort:ports",
+  "company:mozilla",
+  "sundar pichai",
 ];
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
@@ -514,6 +516,99 @@ export default function App() {
                           </div>
                         </div>
                       </article>
+                    </div>
+                  </ResultSection>
+                ) : null}
+
+                {displayResult.externalProfiles.length > 0 ? (
+                  <ResultSection
+                    count={displayResult.externalProfiles.length}
+                    eyebrow="External public OSINT"
+                    title="Public profiles and company enrichment"
+                  >
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {displayResult.externalProfiles.map((profile) => (
+                        <article className="asset-card space-y-4" key={profile.id}>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-xl font-semibold text-slate-50">{profile.name}</h3>
+                                <span className="tag">{profile.kind}</span>
+                              </div>
+                              <p className="mt-2 text-sm text-slate-400">
+                                {profile.summary ?? profile.description ?? "Public profile data from external passive sources."}
+                              </p>
+                            </div>
+                            <span className="metric-pill">{profile.confidence} confidence</span>
+                          </div>
+
+                          {profile.facts.length > 0 ? (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {profile.facts.slice(0, 6).map((fact) => (
+                                <div className="mission-cell" key={`${profile.id}-${fact.label}-${fact.value}`}>
+                                  <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">{fact.label}</div>
+                                  {fact.href ? (
+                                    <a
+                                      className="mt-2 inline-flex text-sm text-emerald-300 hover:text-emerald-200"
+                                      href={fact.href}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      {fact.value}
+                                    </a>
+                                  ) : (
+                                    <div className="mt-2 text-sm text-slate-200">{fact.value}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {profile.aliases.length > 0 ? (
+                            <div>
+                              <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Aliases</div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {profile.aliases.slice(0, 8).map((alias) => (
+                                  <span className="mini-chip" key={`${profile.id}-${alias}`}>
+                                    {alias}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {profile.people.length > 0 ? (
+                            <div>
+                              <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Public people</div>
+                              <div className="mt-3 space-y-3">
+                                {profile.people.slice(0, 8).map((person) => (
+                                  <div className="history-item" key={`${profile.id}-${person.name}-${person.role ?? ""}`}>
+                                    <div className="mono text-sm text-slate-50">{person.name}</div>
+                                    <div className="mt-2 text-xs text-slate-400">{person.role ?? "Public profile"}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {profile.links.length > 0 ? (
+                            <div>
+                              <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">External links</div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {profile.links.map((link) => (
+                                  <ExternalLinkChip href={link.url} key={`${profile.id}-${link.url}`} label={link.label} />
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {profile.notes.length > 0 ? (
+                            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/40 px-4 py-3 text-xs leading-6 text-slate-400">
+                              {profile.notes.join(" ")}
+                            </div>
+                          ) : null}
+                        </article>
+                      ))}
                     </div>
                   </ResultSection>
                 ) : null}

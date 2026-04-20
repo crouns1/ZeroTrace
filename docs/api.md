@@ -53,6 +53,8 @@ Currently supported filters:
 - `domain:`
 - `subdomain:`
 - `ip:`
+- `company:`
+- `person:`
 - `port:`
 - `risk:`
 - `status:`
@@ -65,6 +67,8 @@ Examples:
 - `domain:example.com port:443 risk:high`
 - `domain:mozilla.org tech:wordpress sort:risk`
 - `subdomain:docs.github.com status:investigate`
+- `company:mozilla`
+- `sundar pichai`
 
 ## Response Highlights
 
@@ -74,6 +78,7 @@ The main search response includes:
   - domains
   - subdomains
   - IPs
+  - `externalProfiles`
 - derived intelligence:
   - `insights`
   - `highProbabilityTargets`
@@ -93,4 +98,3 @@ The main search response includes:
 - Without `REDIS_URL`, the API uses in-memory caching and an in-process worker queue.
 - With `REDIS_URL`, the API can use Redis-backed caching and BullMQ-backed job execution.
 - The current indexing provider is an in-memory placeholder with a Meilisearch-ready integration point documented in the architecture.
-

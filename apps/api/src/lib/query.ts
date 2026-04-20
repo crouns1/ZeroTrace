@@ -60,6 +60,22 @@ export function parseQuery(input: string): ParsedQuery {
       continue;
     }
 
+    if (key === "company") {
+      filters.company = value;
+      recognizedFilters.push(`company:${value}`);
+      primaryOperator ??= "company";
+      primaryValue = value;
+      continue;
+    }
+
+    if (key === "person") {
+      filters.person = value;
+      recognizedFilters.push(`person:${value}`);
+      primaryOperator ??= "person";
+      primaryValue = value;
+      continue;
+    }
+
     if (key === "port") {
       const parsed = parseNumber(value);
 

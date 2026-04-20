@@ -19,6 +19,7 @@ React Workbench
       -> passive DNS
       -> passive service enrichment
       -> website intelligence
+      -> external public profiles
     -> Enrichment Worker
     -> Intelligence Engine
       -> risk scoring
@@ -45,6 +46,8 @@ Supported filters today:
 - `domain:`
 - `subdomain:`
 - `ip:`
+- `company:`
+- `person:`
 - `port:`
 - `risk:`
 - `status:`
@@ -65,6 +68,7 @@ Current adapters:
 - passive DNS
 - passive IP/service enrichment
 - website profile and public organization intelligence
+- external public-profile enrichment from knowledge graph and public org APIs
 
 This makes it straightforward to add future providers such as:
 
@@ -137,6 +141,7 @@ Primary surfaces:
 - command bar
 - ranked target cards
 - website fingerprint panel
+- external OSINT profile panel
 - graph view
 - pipeline progress panel
 - local history
@@ -157,4 +162,6 @@ Near-term scale path:
 - no active scanning or intrusive probing in the current product
 - clear disclaimer in API and UI
 - public people data is limited to what the target website itself exposes and may be incomplete
+- external person/company enrichment is limited to public knowledge-graph and public org-profile sources
+- public GitHub org members are treated as public profiles, not guaranteed employees
 - CVE references are treated as validation leads, not proof of exploitability

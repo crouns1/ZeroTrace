@@ -5,12 +5,14 @@ export type ReconJobStatus = "queued" | "running" | "completed" | "failed";
 
 export interface ParsedQuery {
   raw: string;
-  operator: "domain" | "subdomain" | "ip" | "text";
+  operator: "domain" | "subdomain" | "ip" | "text" | "company" | "person";
   value: string;
   filters: {
     domain?: string;
     subdomain?: string;
     ip?: string;
+    company?: string;
+    person?: string;
     port?: number;
     status?: AssetStatus;
     risk?: RiskLevel;
@@ -69,6 +71,28 @@ export interface OrganizationProfile {
   relevantPages: OrganizationPage[];
   people: PublicPerson[];
   sources: string[];
+}
+
+export interface ExternalProfileFact {
+  label: string;
+  value: string;
+  href?: string;
+}
+
+export interface ExternalIntelProfile {
+  id: string;
+  kind: "company" | "person";
+  name: string;
+  description?: string;
+  summary?: string;
+  website?: string;
+  aliases: string[];
+  facts: ExternalProfileFact[];
+  people: PublicPerson[];
+  links: OrganizationPage[];
+  notes: string[];
+  source: string;
+  confidence: "high" | "medium" | "low";
 }
 
 export interface TechFingerprint {
@@ -203,6 +227,7 @@ export interface SearchResponse {
   ipAddresses: IpAsset[];
   organization: OrganizationProfile | null;
   websiteProfile: WebsiteProfile | null;
+  externalProfiles: ExternalIntelProfile[];
   insights: ReconInsight[];
   highProbabilityTargets: ReconInsight[];
   openPorts: Array<{

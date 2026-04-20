@@ -2,10 +2,12 @@ import { config } from "../config.js";
 import { parseQuery } from "../lib/query.js";
 import { CertSpotterSource } from "../sources/certspotter-source.js";
 import { GoogleDnsSource } from "../sources/dns-source.js";
+import { ExternalOsintSource } from "../sources/external-osint-source.js";
 import { InternetDbSource } from "../sources/internetdb-source.js";
 import { WebsiteProfileSource } from "../sources/website-profile-source.js";
 import type {
   DomainAsset,
+  ExternalIntelProfile,
   IpAsset,
   OrganizationProfile,
   ReconPipeline,
@@ -237,6 +239,57 @@ function mergeWebsiteProfile(
   };
 }
 
+function mergeExternalProfiles(
+  current: ExternalIntelProfile[],
+  next: ExternalIntelProfile[] | undefined,
+): ExternalIntelProfile[] {
+  if (!next || next.length === 0) {
+    return current;
+  }
+
+  const merged = new Map<string, ExternalIntelProfile>(current.map((profile) => [profile.id, profile]));
+
+  for (const profile of next) {
+    const existing = merged.get(profile.id);
+
+    if (!existing) {
+      merged.set(profile.id, {
+        ...profile,
+        aliases: [...profile.aliases],
+        facts: [...profile.facts],
+        people: [...profile.people],
+        links: [...profile.links],
+        notes: [...profile.notes],
+      });
+      continue;
+    }
+
+    existing.description = existing.description ?? profile.description;
+    existing.summary = existing.summary ?? profile.summary;
+    existing.website = existing.website ?? profile.website;
+    existing.confidence =
+      existing.confidence === "high" || profile.confidence === "low" ? existing.confidence : profile.confidence;
+    existing.aliases = Array.from(new Set([...existing.aliases, ...profile.aliases]));
+    existing.facts = Array.from(
+      new Map(
+        [...existing.facts, ...profile.facts].map((fact) => [`${fact.label.toLowerCase()}:${fact.value.toLowerCase()}`, fact]),
+      ).values(),
+    );
+    existing.people = Array.from(
+      new Map(
+        [...existing.people, ...profile.people].map((person) => [
+          `${person.name.toLowerCase()}:${(person.role ?? "").toLowerCase()}`,
+          person,
+        ]),
+      ).values(),
+    );
+    existing.links = Array.from(new Map([...existing.links, ...profile.links].map((link) => [link.url, link])).values());
+    existing.notes = Array.from(new Set([...existing.notes, ...profile.notes]));
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
 function buildPerformance(cacheProviderName: string, jobProviderName: string): SearchPerformance {
   return {
     cacheProvider: cacheProviderName,
@@ -258,6 +311,7 @@ function buildResponse(
   const relatedAssets = new Map<string, RelatedAsset>();
   let organization: OrganizationProfile | null = null;
   let websiteProfile: WebsiteProfile | null = null;
+  let externalProfiles: ExternalIntelProfile[] = [];
   const notes = new Set<string>();
   const sources = new Set<string>();
 
@@ -268,6 +322,7 @@ function buildResponse(
     mergeIpAssets(ipAddresses, result.ipAddresses ?? []);
     organization = mergeOrganization(organization, result.organization);
     websiteProfile = mergeWebsiteProfile(websiteProfile, result.websiteProfile);
+    externalProfiles = mergeExternalProfiles(externalProfiles, result.externalProfiles);
 
     for (const asset of result.relatedAssets ?? []) {
       relatedAssets.set(`${asset.kind}:${asset.value}:${asset.relation}`, asset);
@@ -325,6 +380,7 @@ function buildResponse(
     ipAddresses: finalIps,
     organization,
     websiteProfile,
+    externalProfiles,
     insights: [],
     highProbabilityTargets: [],
     openPorts,
@@ -342,7 +398,12 @@ function buildResponse(
       domainCount: finalDomains.length,
       subdomainCount: finalSubdomains.length,
       ipCount: finalIps.length,
-      peopleCount: organization?.people.length ?? 0,
+      peopleCount: Array.from(
+        new Set([
+          ...(organization?.people.map((person) => `${person.name}:${person.role ?? ""}`) ?? []),
+          ...externalProfiles.flatMap((profile) => profile.people.map((person) => `${person.name}:${person.role ?? ""}`)),
+        ]),
+      ).length,
       portCount: openPorts.length,
       relatedAssetCount: finalRelatedAssets.length,
       insightCount: 0,
@@ -371,6 +432,7 @@ function buildEmptyResponse(
     ipAddresses: [],
     organization: null,
     websiteProfile: null,
+    externalProfiles: [],
     insights: [],
     highProbabilityTargets: [],
     openPorts: [],
@@ -415,6 +477,7 @@ export class SearchService {
   private readonly sources: SearchSource[] = [
     new CertSpotterSource(),
     new WebsiteProfileSource(),
+    new ExternalOsintSource(),
     this.dnsSource,
     this.internetDbSource,
   ];
@@ -459,7 +522,7 @@ export class SearchService {
 
       if (baseSources.length === 0) {
         return buildEmptyResponse(parsedQuery, Date.now() - startedAt, [
-          "No source adapter matched this query. Try domain:, subdomain:, ip:, port:, risk:, or tech: filters.",
+          "No source adapter matched this query. Try domain:, subdomain:, ip:, company:, person:, port:, risk:, or tech: filters.",
         ], performance);
       }
 
@@ -490,6 +553,7 @@ export class SearchService {
           (item.domains?.length ?? 0) +
           (item.subdomains?.length ?? 0) +
           (item.ipAddresses?.length ?? 0) +
+          (item.externalProfiles?.length ?? 0) +
           (item.relatedAssets?.length ?? 0),
         0,
       );
@@ -513,6 +577,7 @@ export class SearchService {
             (item.domains?.length ?? 0) +
             (item.subdomains?.length ?? 0) +
             (item.ipAddresses?.length ?? 0) +
+            (item.externalProfiles?.length ?? 0) +
             (item.relatedAssets?.length ?? 0),
           0,
         ),

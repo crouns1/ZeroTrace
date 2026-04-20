@@ -50,8 +50,10 @@ export function SearchBar({
       <p className="mono text-xs text-slate-400">
         Operators: <span className="text-emerald-300">domain:</span>,{" "}
         <span className="text-cyan-300">subdomain:</span>, <span className="text-amber-300">ip:</span>,{" "}
+        <span className="text-fuchsia-300">company:</span>, <span className="text-pink-300">person:</span>,{" "}
         <span className="text-rose-300">risk:</span>, <span className="text-violet-300">port:</span>,{" "}
-        <span className="text-sky-300">tech:</span>, <span className="text-lime-300">status:</span>
+        <span className="text-sky-300">tech:</span>, <span className="text-lime-300">status:</span>. Use plain text for
+        multi-word names.
       </p>
     </form>
   );

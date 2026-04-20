@@ -11,16 +11,24 @@ export interface PageFetchResult {
   text: string;
 }
 
-async function fetchWithDefaults(url: string): Promise<Response> {
+function mergeHeaders(headers?: HeadersInit): HeadersInit {
+  return {
+    ...defaultHeaders,
+    ...(headers ?? {}),
+  };
+}
+
+async function fetchWithDefaults(url: string, init: RequestInit = {}): Promise<Response> {
   return fetch(url, {
-    headers: defaultHeaders,
+    ...init,
+    headers: mergeHeaders(init.headers),
     redirect: "follow",
-    signal: AbortSignal.timeout(config.requestTimeoutMs),
+    signal: init.signal ?? AbortSignal.timeout(config.requestTimeoutMs),
   });
 }
 
-export async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetchWithDefaults(url);
+export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetchWithDefaults(url, init);
 
   if (!response.ok) {
     throw new Error(`Request failed with ${response.status} for ${url}`);
@@ -29,8 +37,8 @@ export async function fetchJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchText(url: string): Promise<string> {
-  const response = await fetchWithDefaults(url);
+export async function fetchText(url: string, init?: RequestInit): Promise<string> {
+  const response = await fetchWithDefaults(url, init);
 
   if (!response.ok) {
     throw new Error(`Request failed with ${response.status} for ${url}`);
@@ -39,8 +47,8 @@ export async function fetchText(url: string): Promise<string> {
   return response.text();
 }
 
-export async function fetchPage(url: string): Promise<PageFetchResult> {
-  const response = await fetchWithDefaults(url);
+export async function fetchPage(url: string, init?: RequestInit): Promise<PageFetchResult> {
+  const response = await fetchWithDefaults(url, init);
 
   if (!response.ok) {
     throw new Error(`Request failed with ${response.status} for ${url}`);
