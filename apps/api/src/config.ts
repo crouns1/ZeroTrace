@@ -5,6 +5,8 @@ export const config = {
   maxEnrichmentHosts: Number(process.env.MAX_ENRICHMENT_HOSTS ?? 6),
   maxOrganizationPages: Number(process.env.MAX_ORGANIZATION_PAGES ?? 6),
   archiveLookupTimeoutMs: Number(process.env.ARCHIVE_LOOKUP_TIMEOUT_MS ?? 4000),
+  watchIntervalMs: Number(process.env.WATCH_INTERVAL_MS ?? 15 * 60 * 1000),
+  watchMaxSnapshots: Number(process.env.WATCH_MAX_SNAPSHOTS ?? 8),
   redisUrl: process.env.REDIS_URL,
   requestTimeoutMs: Number(process.env.REQUEST_TIMEOUT_MS ?? 10_000),
   disclaimer:

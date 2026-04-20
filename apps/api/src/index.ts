@@ -4,6 +4,7 @@ import { z } from "zod";
 import { config } from "./config.js";
 import { createJobRunner } from "./services/job-runner.js";
 import { SearchService } from "./services/search-service.js";
+import { WatchService } from "./services/watch-service.js";
 
 const app = express();
 const searchService = new SearchService();
@@ -16,8 +17,13 @@ const jobRunner = createJobRunner((query, updateProgress) =>
   }),
 );
 jobProviderName = jobRunner.name;
+const watchService = new WatchService(searchService, "watch-monitor");
 const searchSchema = z.object({
   q: z.string().min(1),
+});
+const watchCreateSchema = z.object({
+  q: z.string().min(1),
+  label: z.string().trim().min(1).max(80).optional(),
 });
 
 app.use(cors({ origin: config.corsOrigin }));
@@ -32,6 +38,7 @@ app.get("/health", (_request, response) => {
       cacheProvider: searchService.getCacheProviderName(),
       jobProvider: jobRunner.name,
     },
+    monitoring: watchService.getSummary(),
   });
 });
 
@@ -91,6 +98,78 @@ app.get("/api/recon/jobs/:jobId", async (request, response) => {
   }
 
   response.json(job);
+});
+
+app.get("/api/watch-targets", (_request, response) => {
+  response.json(watchService.list());
+});
+
+app.post("/api/watch-targets", async (request, response) => {
+  const parsed = watchCreateSchema.safeParse(request.body);
+
+  if (!parsed.success) {
+    response.status(400).json({
+      error: "Invalid watch target payload.",
+    });
+    return;
+  }
+
+  try {
+    const target = await watchService.create(parsed.data.q, parsed.data.label);
+    response.status(201).json(target);
+  } catch (error) {
+    response.status(502).json({
+      error: error instanceof Error ? error.message : "Could not create watch target.",
+      disclaimer: config.disclaimer,
+    });
+  }
+});
+
+app.get("/api/watch-targets/:watchId", (request, response) => {
+  const target = watchService.get(request.params.watchId);
+
+  if (!target) {
+    response.status(404).json({
+      error: "Watch target not found.",
+    });
+    return;
+  }
+
+  response.json(target);
+});
+
+app.post("/api/watch-targets/:watchId/check", async (request, response) => {
+  const target = watchService.get(request.params.watchId);
+
+  if (!target) {
+    response.status(404).json({
+      error: "Watch target not found.",
+    });
+    return;
+  }
+
+  try {
+    const updated = await watchService.runCheck(request.params.watchId);
+    response.json(updated);
+  } catch (error) {
+    response.status(502).json({
+      error: error instanceof Error ? error.message : "Could not run watch check.",
+      disclaimer: config.disclaimer,
+    });
+  }
+});
+
+app.delete("/api/watch-targets/:watchId", (request, response) => {
+  const deleted = watchService.delete(request.params.watchId);
+
+  if (!deleted) {
+    response.status(404).json({
+      error: "Watch target not found.",
+    });
+    return;
+  }
+
+  response.status(204).send();
 });
 
 app.listen(config.port, () => {

@@ -2,6 +2,17 @@ export type RiskLevel = "critical" | "high" | "medium" | "low";
 export type AssetStatus = "active" | "investigate" | "watch" | "stale";
 export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
 export type ReconJobStatus = "queued" | "running" | "completed" | "failed";
+export type WatchStatus = "idle" | "running" | "completed" | "failed";
+export type WatchChangeKind =
+  | "subdomain-added"
+  | "subdomain-removed"
+  | "ip-added"
+  | "port-opened"
+  | "port-closed"
+  | "tech-added"
+  | "person-added"
+  | "endpoint-added"
+  | "high-probability-added";
 
 export interface ParsedQuery {
   raw: string;
@@ -275,6 +286,39 @@ export interface ReconJob {
   updatedAt: string;
   result?: SearchResponse;
   error?: string;
+}
+
+export interface WatchChange {
+  id: string;
+  kind: WatchChangeKind;
+  severity: FindingSeverity;
+  label: string;
+  detail: string;
+  observedAt: string;
+}
+
+export interface WatchSnapshot {
+  id: string;
+  createdAt: string;
+  durationMs: number;
+  stats: SearchResponse["stats"];
+  changeCount: number;
+  changes: WatchChange[];
+}
+
+export interface WatchTarget {
+  id: string;
+  query: string;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
+  lastCheckedAt?: string;
+  nextCheckAt?: string;
+  status: WatchStatus;
+  autoRefreshIntervalMs: number;
+  lastError?: string;
+  latestSnapshot?: WatchSnapshot;
+  snapshots: WatchSnapshot[];
 }
 
 export interface HistoryEntry {

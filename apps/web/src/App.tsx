@@ -5,9 +5,18 @@ import { InsightCard } from "./components/InsightCard";
 import { PipelinePanel } from "./components/PipelinePanel";
 import { ResultSection } from "./components/ResultSection";
 import { SearchBar } from "./components/SearchBar";
-import { getReconJob, searchQuery, startReconJob } from "./lib/api";
+import { WatchPanel } from "./components/WatchPanel";
+import {
+  createWatchTarget,
+  deleteWatchTarget,
+  getReconJob,
+  listWatchTargets,
+  runWatchCheck,
+  searchQuery,
+  startReconJob,
+} from "./lib/api";
 import { loadHistory, saveHistory } from "./lib/history";
-import type { HistoryEntry, ReconJob, SearchResponse } from "./lib/types";
+import type { HistoryEntry, ReconJob, SearchResponse, WatchTarget } from "./lib/types";
 
 const quickQueries = [
   "domain:mozilla.org sort:risk",
@@ -42,17 +51,35 @@ function ExternalLinkChip({ href, label }: { href: string; label: string }) {
   );
 }
 
+function upsertWatchTarget(targets: WatchTarget[], next: WatchTarget): WatchTarget[] {
+  return Array.from(new Map([next, ...targets].map((target) => [target.id, target])).values()).sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
+}
+
 export default function App() {
   const [query, setQuery] = useState("domain:mozilla.org sort:risk");
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [watchTargets, setWatchTargets] = useState<WatchTarget[]>([]);
   const [activeJob, setActiveJob] = useState<ReconJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPipelineLoading, setIsPipelineLoading] = useState(false);
+  const [isCreatingWatch, setIsCreatingWatch] = useState(false);
+  const [activeWatchId, setActiveWatchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
+    void refreshWatchTargets();
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshWatchTargets();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -128,6 +155,69 @@ export default function App() {
     } catch (jobError) {
       setError(jobError instanceof Error ? jobError.message : "Could not start recon pipeline.");
       setIsPipelineLoading(false);
+    }
+  }
+
+  async function refreshWatchTargets() {
+    try {
+      const nextTargets = await listWatchTargets();
+      setWatchTargets(nextTargets);
+    } catch {
+      // Keep the workbench usable even if watch refresh fails temporarily.
+    }
+  }
+
+  async function handleWatchCurrent(nextQuery: string) {
+    const normalized = nextQuery.trim();
+
+    if (!normalized) {
+      return;
+    }
+
+    setIsCreatingWatch(true);
+    setError(null);
+
+    try {
+      const target = await createWatchTarget(normalized);
+      startTransition(() => {
+        setWatchTargets((current) => upsertWatchTarget(current, target));
+      });
+    } catch (watchError) {
+      setError(watchError instanceof Error ? watchError.message : "Could not create watch target.");
+    } finally {
+      setIsCreatingWatch(false);
+    }
+  }
+
+  async function handleRunWatchCheck(watchId: string) {
+    setActiveWatchId(watchId);
+    setError(null);
+
+    try {
+      const updated = await runWatchCheck(watchId);
+      startTransition(() => {
+        setWatchTargets((current) => upsertWatchTarget(current, updated));
+      });
+    } catch (watchError) {
+      setError(watchError instanceof Error ? watchError.message : "Could not run watch check.");
+    } finally {
+      setActiveWatchId(null);
+    }
+  }
+
+  async function handleDeleteWatch(watchId: string) {
+    setActiveWatchId(watchId);
+    setError(null);
+
+    try {
+      await deleteWatchTarget(watchId);
+      startTransition(() => {
+        setWatchTargets((current) => current.filter((target) => target.id !== watchId));
+      });
+    } catch (watchError) {
+      setError(watchError instanceof Error ? watchError.message : "Could not delete watch target.");
+    } finally {
+      setActiveWatchId(null);
     }
   }
 
@@ -646,6 +736,20 @@ export default function App() {
           </div>
 
           <div className="space-y-6">
+            <WatchPanel
+              activeTargetId={activeWatchId}
+              currentQuery={query}
+              onDelete={handleDeleteWatch}
+              onReplay={(replayQuery) => {
+                setQuery(replayQuery);
+                void executeSearch(replayQuery);
+              }}
+              onRunCheck={handleRunWatchCheck}
+              onWatchCurrent={handleWatchCurrent}
+              targets={watchTargets}
+              watchingQuery={isCreatingWatch}
+            />
+
             <HistoryPanel
               history={history}
               onReplay={(replayQuery) => {

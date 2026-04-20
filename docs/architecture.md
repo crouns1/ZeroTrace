@@ -33,6 +33,10 @@ React Workbench
     -> Job Runner
       -> memory worker
       -> BullMQ (optional)
+    -> Watch Service
+      -> baseline snapshots
+      -> change diffs
+      -> scheduled rechecks
 ```
 
 ## Backend Modules
@@ -89,6 +93,25 @@ Current responsibilities:
 - enrich IPs with passive port/service signals
 - extend passive website context
 
+### Watch Service
+
+The monitoring layer turns one-off recon into an ongoing workflow.
+
+Current responsibilities:
+
+- store watched queries in memory
+- create a baseline snapshot from the latest search response
+- compare each new run against the latest snapshot
+- surface changes such as:
+  - new subdomains
+  - new IPs
+  - new open ports
+  - new technologies
+  - new public people signals
+  - new endpoints
+  - new high-probability targets
+- schedule automatic rechecks when `WATCH_INTERVAL_MS` is enabled
+
 ### Intelligence Engine
 
 The intelligence layer is the core product differentiator.
@@ -140,6 +163,7 @@ Primary surfaces:
 
 - command bar
 - ranked target cards
+- watch monitoring panel
 - website fingerprint panel
 - external OSINT profile panel
 - graph view
@@ -164,4 +188,5 @@ Near-term scale path:
 - public people data is limited to what the target website itself exposes and may be incomplete
 - external person/company enrichment is limited to public knowledge-graph and public org-profile sources
 - public GitHub org members are treated as public profiles, not guaranteed employees
+- watch monitoring stores state in API memory in the current build
 - CVE references are treated as validation leads, not proof of exploitability

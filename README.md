@@ -32,6 +32,7 @@ ReconPulse is intentionally opinionated:
 - External public-profile enrichment for companies and notable people
 - Graph-based attack surface view
 - Async recon jobs with polling
+- Watch targets with baseline snapshots and change diffs
 - Browser-local search history
 - Modular source adapters
 - Memory-first runtime with optional Redis + BullMQ scale path
@@ -102,11 +103,25 @@ npm run dev
 
 Without `REDIS_URL`, ReconPulse uses in-memory cache and an in-process worker queue.
 
+Optional monitoring controls:
+
+```bash
+export WATCH_INTERVAL_MS=900000
+export WATCH_MAX_SNAPSHOTS=8
+npm run dev
+```
+
+`WATCH_INTERVAL_MS` sets the automatic watch recheck interval. Set it to `0` for manual-only monitoring.
+
 ## API Highlights
 
 - `GET /api/search?q=domain:mozilla.org sort:risk`
 - `POST /api/recon/jobs` with JSON body `{ "q": "domain:mozilla.org sort:risk" }`
 - `GET /api/recon/jobs/:jobId`
+- `GET /api/watch-targets`
+- `POST /api/watch-targets`
+- `POST /api/watch-targets/:watchId/check`
+- `DELETE /api/watch-targets/:watchId`
 - `GET /health`
 
 See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for more detail.
@@ -114,6 +129,7 @@ See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for
 ## Notes
 
 - Search history is stored in browser `localStorage`.
+- Watch targets are currently stored in API memory and reset when the API process restarts.
 - Website organization intelligence is best-effort and limited to public target-site content.
 - External people/company enrichment is limited to public knowledge-graph and public organization-profile data.
 - ReconPulse does not scrape third-party employee networks or build private-person lookup workflows.
