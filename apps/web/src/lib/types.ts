@@ -106,6 +106,39 @@ export interface ExternalIntelProfile {
   confidence: "high" | "medium" | "low";
 }
 
+export interface OsintTrackerItem {
+  id: string;
+  label: string;
+  value: string;
+  href?: string;
+  context?: string;
+  source: string;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface OsintTrackerSection {
+  id: string;
+  title: string;
+  description: string;
+  items: OsintTrackerItem[];
+}
+
+export interface OsintCoverageSignal {
+  id: string;
+  label: string;
+  source: string;
+  status: "hit" | "partial" | "miss";
+  detail: string;
+}
+
+export interface OsintTracker {
+  target: string;
+  highlights: string[];
+  sections: OsintTrackerSection[];
+  coverage: OsintCoverageSignal[];
+  notes: string[];
+}
+
 export interface TechFingerprint {
   name: string;
   category: "cms" | "framework" | "server" | "cdn" | "platform" | "language" | "service";
@@ -239,6 +272,7 @@ export interface SearchResponse {
   organization: OrganizationProfile | null;
   websiteProfile: WebsiteProfile | null;
   externalProfiles: ExternalIntelProfile[];
+  osintTracker: OsintTracker | null;
   insights: ReconInsight[];
   highProbabilityTargets: ReconInsight[];
   openPorts: Array<{

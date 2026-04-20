@@ -80,7 +80,7 @@ Current adapters:
 - passive DNS
 - passive IP/service enrichment
 - website profile and public organization intelligence
-- external public-profile enrichment from knowledge graph and public org APIs
+- external OSINT tracker from knowledge graph, public org APIs, RDAP, and public-discussion feeds
 
 This makes it straightforward to add future providers such as:
 
@@ -188,6 +188,7 @@ Primary surfaces:
 - access control panel
 - website fingerprint panel
 - external OSINT profile panel
+- multi-source OSINT tracker panel
 - graph view
 - pipeline progress panel
 - local history
@@ -208,7 +209,7 @@ Near-term scale path:
 - no active scanning or intrusive probing in the current product
 - clear disclaimer in API and UI
 - public people data is limited to what the target website itself exposes and may be incomplete
-- external person/company enrichment is limited to public knowledge-graph and public org-profile sources
+- external person/company enrichment is limited to public knowledge-graph, public org-profile, RDAP, and public-discussion sources
 - public GitHub org members are treated as public profiles, not guaranteed employees
 - watch monitoring persists to local disk in the current build
 - outbound fetches are restricted to public HTTP(S) destinations and reject localhost/private-address targets

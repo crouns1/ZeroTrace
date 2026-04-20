@@ -9,7 +9,13 @@ import type {
   DomainAsset,
   ExternalIntelProfile,
   IpAsset,
+  OrganizationPage,
   OrganizationProfile,
+  OsintCoverageSignal,
+  OsintTracker,
+  OsintTrackerItem,
+  OsintTrackerSection,
+  PublicPerson,
   ReconPipeline,
   ReconPipelineStage,
   RelatedAsset,
@@ -290,6 +296,414 @@ function mergeExternalProfiles(
   return Array.from(merged.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function cloneTrackerItem(item: OsintTrackerItem): OsintTrackerItem {
+  return { ...item };
+}
+
+function cloneTrackerSection(section: OsintTrackerSection): OsintTrackerSection {
+  return {
+    ...section,
+    items: section.items.map(cloneTrackerItem),
+  };
+}
+
+function cloneCoverageSignal(signal: OsintCoverageSignal): OsintCoverageSignal {
+  return { ...signal };
+}
+
+function cloneOsintTracker(tracker: OsintTracker): OsintTracker {
+  return {
+    ...tracker,
+    highlights: [...tracker.highlights],
+    sections: tracker.sections.map(cloneTrackerSection),
+    coverage: tracker.coverage.map(cloneCoverageSignal),
+    notes: [...tracker.notes],
+  };
+}
+
+function mergeOsintTracker(current: OsintTracker | null, next: OsintTracker | undefined): OsintTracker | null {
+  if (!next) {
+    return current;
+  }
+
+  if (!current) {
+    return cloneOsintTracker(next);
+  }
+
+  const merged = cloneOsintTracker(current);
+  const sections = new Map<string, OsintTrackerSection>(merged.sections.map((section) => [section.id, section]));
+
+  for (const section of next.sections) {
+    const existing = sections.get(section.id);
+
+    if (!existing) {
+      sections.set(section.id, cloneTrackerSection(section));
+      continue;
+    }
+
+    existing.title = existing.title || section.title;
+    existing.description = existing.description || section.description;
+    existing.items = Array.from(
+      new Map(
+        [...existing.items, ...section.items].map((item) => [
+          `${item.label.toLowerCase()}:${item.value.toLowerCase()}:${item.source.toLowerCase()}`,
+          cloneTrackerItem(item),
+        ]),
+      ).values(),
+    );
+  }
+
+  merged.target = merged.target || next.target;
+  merged.sections = Array.from(sections.values());
+  merged.coverage = Array.from(
+    new Map(
+      [...merged.coverage, ...next.coverage].map((signal) => [
+        `${signal.source.toLowerCase()}:${signal.label.toLowerCase()}`,
+        cloneCoverageSignal(signal),
+      ]),
+    ).values(),
+  );
+  merged.highlights = Array.from(new Set([...merged.highlights, ...next.highlights]));
+  merged.notes = Array.from(new Set([...merged.notes, ...next.notes]));
+  return merged;
+}
+
+function normalizeTrackerHref(value: string): string | undefined {
+  try {
+    return new URL(value).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function trackSection(
+  tracker: OsintTracker,
+  id: string,
+  title: string,
+  description: string,
+): OsintTrackerSection {
+  let section = tracker.sections.find((entry) => entry.id === id);
+
+  if (!section) {
+    section = {
+      id,
+      title,
+      description,
+      items: [],
+    };
+    tracker.sections.push(section);
+  }
+
+  return section;
+}
+
+function addTrackerItem(
+  tracker: OsintTracker,
+  sectionId: string,
+  title: string,
+  description: string,
+  item: OsintTrackerItem,
+): void {
+  const section = trackSection(tracker, sectionId, title, description);
+  const key = `${item.label.toLowerCase()}:${item.value.toLowerCase()}:${item.source.toLowerCase()}`;
+
+  if (section.items.some((entry) => `${entry.label.toLowerCase()}:${entry.value.toLowerCase()}:${entry.source.toLowerCase()}` === key)) {
+    return;
+  }
+
+  section.items.push(item);
+}
+
+function addTrackerHighlight(tracker: OsintTracker, value: string | undefined): void {
+  if (!value) {
+    return;
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return;
+  }
+
+  if (!tracker.highlights.includes(normalized)) {
+    tracker.highlights.push(normalized);
+  }
+}
+
+function addCoverageSignal(tracker: OsintTracker, signal: OsintCoverageSignal): void {
+  const key = `${signal.source.toLowerCase()}:${signal.label.toLowerCase()}`;
+
+  if (tracker.coverage.some((entry) => `${entry.source.toLowerCase()}:${entry.label.toLowerCase()}` === key)) {
+    return;
+  }
+
+  tracker.coverage.push(signal);
+}
+
+function addOrganizationPeople(tracker: OsintTracker, people: PublicPerson[], source: string): void {
+  for (const person of people) {
+    addTrackerItem(tracker, "people", "Public people", "Leadership, founders, or public team signals.", {
+      id: `person:${person.name.toLowerCase()}:${(person.role ?? "public-profile").toLowerCase()}`,
+      label: person.role ?? "Public profile",
+      value: person.name,
+      href: person.sourcePage,
+      context: person.sourcePage ? "Linked from a public page or passive external source." : undefined,
+      source,
+      confidence: source === "website-profile" ? "high" : "medium",
+    });
+  }
+}
+
+function addOrganizationPages(tracker: OsintTracker, pages: OrganizationPage[], source: string): void {
+  for (const page of pages) {
+    addTrackerItem(tracker, "pages", "Relevant pages", "Contact, about, team, and organization pages worth reviewing.", {
+      id: `page:${page.url}`,
+      label: page.label,
+      value: page.url,
+      href: page.url,
+      source,
+      confidence: "high",
+    });
+  }
+}
+
+function augmentOsintTracker(
+  current: OsintTracker | null,
+  query: SearchResponse["query"],
+  organization: OrganizationProfile | null,
+  websiteProfile: WebsiteProfile | null,
+  externalProfiles: ExternalIntelProfile[],
+): OsintTracker | null {
+  const hasSignals =
+    Boolean(current) ||
+    Boolean(organization) ||
+    Boolean(websiteProfile) ||
+    externalProfiles.length > 0;
+
+  if (!hasSignals) {
+    return null;
+  }
+
+  const tracker = current
+    ? cloneOsintTracker(current)
+    : {
+        target: organization?.website ?? websiteProfile?.baseUrl ?? query.value,
+        highlights: [],
+        sections: [],
+        coverage: [],
+        notes: [],
+      };
+
+  tracker.target = tracker.target || organization?.website || websiteProfile?.baseUrl || query.value;
+
+  if (organization) {
+    addCoverageSignal(tracker, {
+      id: "website-public-pages",
+      label: "Website public pages",
+      source: "website-profile",
+      status: organization.people.length > 0 || organization.relevantPages.length > 0 ? "hit" : "partial",
+      detail:
+        organization.people.length > 0 || organization.relevantPages.length > 0
+          ? "Parsed public organization pages, team pages, or contact pages from the target site."
+          : "Website was reachable but published only limited organization metadata.",
+    });
+
+    if (organization.name) {
+      addTrackerItem(tracker, "identity", "Identity", "Core identity and company metadata collected passively.", {
+        id: "identity:name",
+        label: "Name",
+        value: organization.name,
+        source: "website-profile",
+        confidence: "high",
+      });
+    }
+
+    addTrackerItem(tracker, "identity", "Identity", "Core identity and company metadata collected passively.", {
+      id: "identity:website",
+      label: "Website",
+      value: organization.website,
+      href: organization.website,
+      source: "website-profile",
+      confidence: "high",
+    });
+
+    if (organization.location) {
+      addTrackerItem(tracker, "identity", "Identity", "Core identity and company metadata collected passively.", {
+        id: "identity:location",
+        label: "Location",
+        value: organization.location,
+        source: "website-profile",
+        confidence: "medium",
+      });
+    }
+
+    if (organization.foundedYear) {
+      addTrackerItem(tracker, "identity", "Identity", "Core identity and company metadata collected passively.", {
+        id: "identity:founded",
+        label: "Founded signal",
+        value: String(organization.foundedYear),
+        source: "website-profile",
+        confidence: "medium",
+      });
+      addTrackerHighlight(tracker, `Founding signal: ${organization.foundedYear}.`);
+    }
+
+    if (organization.earliestArchiveYear) {
+      addTrackerItem(
+        tracker,
+        "infrastructure",
+        "Archive and registration",
+        "Historic and registration-oriented passive signals.",
+        {
+          id: "infrastructure:archive",
+          label: "Earliest archive year",
+          value: String(organization.earliestArchiveYear),
+          source: "website-profile",
+          confidence: "medium",
+        },
+      );
+      addTrackerHighlight(tracker, `Archive coverage reaches back to ${organization.earliestArchiveYear}.`);
+    }
+
+    for (const email of organization.emails) {
+      addTrackerItem(tracker, "contacts", "Contacts", "Public contact points and externally visible communications channels.", {
+        id: `contact:email:${email.toLowerCase()}`,
+        label: "Email",
+        value: email,
+        href: `mailto:${email}`,
+        source: "website-profile",
+        confidence: "high",
+      });
+    }
+
+    for (const phone of organization.phones) {
+      addTrackerItem(tracker, "contacts", "Contacts", "Public contact points and externally visible communications channels.", {
+        id: `contact:phone:${phone.toLowerCase()}`,
+        label: "Phone",
+        value: phone,
+        source: "website-profile",
+        confidence: "medium",
+      });
+    }
+
+    for (const link of organization.socialLinks) {
+      addTrackerItem(tracker, "social", "Social and community", "Public social handles, reference links, and community presence.", {
+        id: `social:${link}`,
+        label: "Social profile",
+        value: link,
+        href: link,
+        source: "website-profile",
+        confidence: "high",
+      });
+    }
+
+    addOrganizationPeople(tracker, organization.people, "website-profile");
+    addOrganizationPages(tracker, organization.relevantPages, "website-profile");
+  }
+
+  if (websiteProfile) {
+    addCoverageSignal(tracker, {
+      id: "website-stack",
+      label: "Website stack",
+      source: "website-profile",
+      status: websiteProfile.techStack.length > 0 || websiteProfile.endpoints.length > 0 ? "hit" : "partial",
+      detail:
+        websiteProfile.techStack.length > 0 || websiteProfile.endpoints.length > 0
+          ? "Collected passive web stack markers and public endpoint hints from the target site."
+          : "Website was reachable but yielded limited passive stack data.",
+    });
+
+    if (websiteProfile.finalUrl && websiteProfile.finalUrl !== websiteProfile.baseUrl) {
+      addTrackerItem(tracker, "web", "Web footprint", "Public web routing and passive HTTP observations.", {
+        id: "web:final-url",
+        label: "Final URL",
+        value: websiteProfile.finalUrl,
+        href: websiteProfile.finalUrl,
+        source: "website-profile",
+        confidence: "high",
+      });
+    }
+
+    if (websiteProfile.server) {
+      addTrackerItem(tracker, "web", "Web footprint", "Public web routing and passive HTTP observations.", {
+        id: "web:server",
+        label: "Server header",
+        value: websiteProfile.server,
+        source: "website-profile",
+        confidence: "medium",
+      });
+    }
+
+    if (websiteProfile.poweredBy) {
+      addTrackerItem(tracker, "web", "Web footprint", "Public web routing and passive HTTP observations.", {
+        id: "web:powered-by",
+        label: "X-Powered-By",
+        value: websiteProfile.poweredBy,
+        source: "website-profile",
+        confidence: "medium",
+      });
+    }
+
+    for (const title of websiteProfile.titles.slice(0, 4)) {
+      addTrackerItem(tracker, "web", "Web footprint", "Public web routing and passive HTTP observations.", {
+        id: `web:title:${title.toLowerCase()}`,
+        label: "Page title",
+        value: title,
+        source: "website-profile",
+        confidence: "medium",
+      });
+    }
+  }
+
+  for (const profile of externalProfiles) {
+    if (profile.website) {
+      addTrackerItem(tracker, "social", "Social and community", "Public social handles, reference links, and community presence.", {
+        id: `profile:website:${profile.id}`,
+        label: profile.kind === "company" ? "Official site" : "Personal site",
+        value: profile.website,
+        href: profile.website,
+        source: profile.source,
+        confidence: profile.confidence,
+      });
+    }
+
+    for (const link of profile.links) {
+      addTrackerItem(tracker, "social", "Social and community", "Public social handles, reference links, and community presence.", {
+        id: `profile:link:${profile.id}:${link.url}`,
+        label: link.label,
+        value: link.url,
+        href: normalizeTrackerHref(link.url),
+        source: profile.source,
+        confidence: profile.confidence,
+      });
+    }
+
+    addOrganizationPeople(tracker, profile.people, profile.source);
+  }
+
+  const peopleCount = tracker.sections.find((section) => section.id === "people")?.items.length ?? 0;
+
+  if (peopleCount > 0) {
+    addTrackerHighlight(tracker, `${peopleCount} public people signals collected.`);
+  }
+
+  const contactCount = tracker.sections.find((section) => section.id === "contacts")?.items.length ?? 0;
+
+  if (contactCount > 0) {
+    addTrackerHighlight(tracker, `${contactCount} contact points or abuse channels exposed publicly.`);
+  }
+
+  tracker.sections = tracker.sections
+    .map((section) => ({
+      ...section,
+      items: section.items.sort((left, right) => left.label.localeCompare(right.label) || left.value.localeCompare(right.value)),
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title));
+  tracker.highlights = tracker.highlights.slice(0, 6);
+  tracker.notes = Array.from(new Set(tracker.notes));
+  return tracker;
+}
+
 function buildPerformance(cacheProviderName: string, jobProviderName: string): SearchPerformance {
   return {
     cacheProvider: cacheProviderName,
@@ -312,6 +726,7 @@ function buildResponse(
   let organization: OrganizationProfile | null = null;
   let websiteProfile: WebsiteProfile | null = null;
   let externalProfiles: ExternalIntelProfile[] = [];
+  let osintTracker: OsintTracker | null = null;
   const notes = new Set<string>();
   const sources = new Set<string>();
 
@@ -323,6 +738,7 @@ function buildResponse(
     organization = mergeOrganization(organization, result.organization);
     websiteProfile = mergeWebsiteProfile(websiteProfile, result.websiteProfile);
     externalProfiles = mergeExternalProfiles(externalProfiles, result.externalProfiles);
+    osintTracker = mergeOsintTracker(osintTracker, result.osintTracker);
 
     for (const asset of result.relatedAssets ?? []) {
       relatedAssets.set(`${asset.kind}:${asset.value}:${asset.relation}`, asset);
@@ -365,6 +781,7 @@ function buildResponse(
   const finalRelatedAssets = Array.from(relatedAssets.values()).sort((left, right) =>
     left.value.localeCompare(right.value),
   );
+  const finalOsintTracker = augmentOsintTracker(osintTracker, query, organization, websiteProfile, externalProfiles);
   const openPorts = finalIps.flatMap((entry) =>
     entry.openPorts.map((port) => ({
       ip: entry.address,
@@ -381,6 +798,7 @@ function buildResponse(
     organization,
     websiteProfile,
     externalProfiles,
+    osintTracker: finalOsintTracker,
     insights: [],
     highProbabilityTargets: [],
     openPorts,
@@ -433,6 +851,7 @@ function buildEmptyResponse(
     organization: null,
     websiteProfile: null,
     externalProfiles: [],
+    osintTracker: null,
     insights: [],
     highProbabilityTargets: [],
     openPorts: [],

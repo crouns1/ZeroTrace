@@ -19,6 +19,7 @@ function createResponse(partial: Partial<SearchResponse>): SearchResponse {
     organization: null,
     websiteProfile: null,
     externalProfiles: [],
+    osintTracker: null,
     insights: [],
     highProbabilityTargets: [],
     openPorts: [],

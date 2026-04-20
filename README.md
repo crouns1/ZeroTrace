@@ -29,6 +29,7 @@ ReconPulse is intentionally opinionated:
 - Risk-ranked insights and high-probability targets
 - Tech stack fingerprinting with historical CVE references where relevant
 - Public website OSINT for company pages, public leadership/team listings, and archive-year hints
+- Multi-source OSINT tracker that groups identity, people, code, social, web, and mention signals
 - External public-profile enrichment for companies and notable people
 - Graph-based attack surface view
 - Async recon jobs with polling
@@ -61,6 +62,8 @@ More detail is available in [docs/architecture.md](/home/crouns/Desktop/futur_pr
 - Shodan InternetDB for passive IP/service enrichment
 - Wikidata search/entity APIs for public company and notable-person profile enrichment
 - GitHub public organization APIs for public org member and repository signals
+- RDAP domain records for passive domain registration metadata when available
+- Hacker News Algolia search for public mention tracking
 - Target website public pages for:
   - company/team/contact signals
   - tech fingerprint clues
@@ -163,7 +166,7 @@ See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for
 - The API enforces optional API-key auth, per-client rate limits, and restrictive outbound fetch validation for public-only destinations.
 - Search results can now be exported from the UI as JSON or CSV.
 - Website organization intelligence is best-effort and limited to public target-site content.
-- External people/company enrichment is limited to public knowledge-graph and public organization-profile data.
+- External people/company enrichment is limited to public knowledge-graph, public org-profile, RDAP, and public-discussion data.
 - ReconPulse does not scrape third-party employee networks or build private-person lookup workflows.
 - GitHub public organization members are shown as public profiles and should not be assumed to be a complete employee list.
 - Historical CVE references in the UI are meant to guide validation, not assert that a target is definitely vulnerable.

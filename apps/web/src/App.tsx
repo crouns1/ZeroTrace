@@ -54,6 +54,10 @@ function ExternalLinkChip({ href, label }: { href: string; label: string }) {
   );
 }
 
+function getTrackerRecordCount(result: SearchResponse | null): number {
+  return result?.osintTracker?.sections.reduce((total, section) => total + section.items.length, 0) ?? 0;
+}
+
 function upsertWatchTarget(targets: WatchTarget[], next: WatchTarget): WatchTarget[] {
   return Array.from(new Map([next, ...targets].map((target) => [target.id, target])).values()).sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
@@ -712,6 +716,124 @@ export default function App() {
                         </article>
                       ))}
                     </div>
+                  </ResultSection>
+                ) : null}
+
+                {displayResult.osintTracker ? (
+                  <ResultSection
+                    count={getTrackerRecordCount(displayResult)}
+                    eyebrow="OSINT tracker"
+                    title="Multi-source public footprint"
+                  >
+                    <div className="grid gap-4 xl:grid-cols-[1.15fr,0.85fr]">
+                      <article className="asset-card space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-semibold text-slate-50">{displayResult.osintTracker.target}</h3>
+                            <p className="mt-2 text-sm text-slate-400">
+                              Public-only tracker built from target-site signals, public knowledge graphs, GitHub, RDAP, and public web discussion.
+                            </p>
+                          </div>
+                          <span className="metric-pill">{displayResult.osintTracker.sections.length} lanes</span>
+                        </div>
+
+                        <div>
+                          <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Highlights</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {displayResult.osintTracker.highlights.length ? (
+                              displayResult.osintTracker.highlights.map((highlight) => (
+                                <span className="mini-chip" key={highlight}>
+                                  {highlight}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500">No high-confidence highlights yet</span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+
+                      <article className="asset-card space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-50">Source coverage</h3>
+                            <p className="mt-2 text-sm text-slate-400">
+                              Use this to see which passive feeds contributed and which ones came back empty.
+                            </p>
+                          </div>
+                          <span className="metric-pill">{displayResult.osintTracker.coverage.length}</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {displayResult.osintTracker.coverage.length ? (
+                            displayResult.osintTracker.coverage.map((signal) => (
+                              <div className="history-item" key={`${signal.source}-${signal.label}`}>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="mono text-sm text-slate-50">{signal.label}</div>
+                                  <span className="mini-chip">{signal.status}</span>
+                                </div>
+                                <div className="mt-2 text-xs text-slate-500">{signal.source}</div>
+                                <p className="mt-3 text-xs leading-6 text-slate-400">{signal.detail}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-400">Coverage signals will appear as passive sources respond.</p>
+                          )}
+                        </div>
+                      </article>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {displayResult.osintTracker.sections.map((section) => (
+                        <article className="asset-card space-y-4" key={section.id}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <h3 className="text-lg font-semibold text-slate-50">{section.title}</h3>
+                              <p className="mt-2 text-sm text-slate-400">{section.description}</p>
+                            </div>
+                            <span className="metric-pill">{section.items.length}</span>
+                          </div>
+
+                          <div className="space-y-3">
+                            {section.items.map((item) => (
+                              <div className="history-item" key={item.id}>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="mono text-xs uppercase tracking-[0.24em] text-slate-500">{item.label}</div>
+                                  <span className="mini-chip">{item.confidence}</span>
+                                </div>
+
+                                {item.href ? (
+                                  <a
+                                    className="mt-3 inline-flex break-all text-sm text-emerald-300 hover:text-emerald-200"
+                                    href={item.href}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                  >
+                                    {item.value}
+                                  </a>
+                                ) : (
+                                  <div className="mt-3 break-all text-sm text-slate-100">{item.value}</div>
+                                )}
+
+                                {item.context ? (
+                                  <p className="mt-3 text-xs leading-6 text-slate-400">{item.context}</p>
+                                ) : null}
+
+                                <div className="mt-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">
+                                  {item.source}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+
+                    {displayResult.osintTracker.notes.length ? (
+                      <div className="rounded-[28px] border border-slate-800/80 bg-slate-950/40 px-5 py-4 text-xs leading-6 text-slate-400">
+                        {displayResult.osintTracker.notes.join(" ")}
+                      </div>
+                    ) : null}
                   </ResultSection>
                 ) : null}
               </>

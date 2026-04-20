@@ -115,6 +115,7 @@ The main search response includes:
   - subdomains
   - IPs
   - `externalProfiles`
+  - `osintTracker.sections`
 - derived intelligence:
   - `insights`
   - `highProbabilityTargets`
@@ -132,6 +133,12 @@ The main search response includes:
   - cache provider
   - job provider
   - indexing provider
+
+The `osintTracker` object groups passive public intelligence into:
+
+- `highlights`
+- `coverage`
+- sectioned records such as `identity`, `people`, `social`, `code`, `mentions`, `contacts`, `pages`, and `web`
 
 ## Operational Security
 
