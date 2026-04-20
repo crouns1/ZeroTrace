@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "concurrently -k -n api,web -c green,cyan \"npm run dev --workspace @zero-trace/api\" \"npm run dev --workspace @zero-trace/web\"",
     "build": "npm run build --workspace @zero-trace/api && npm run build --workspace @zero-trace/web",
-    "start": "npm run start --workspace @zero-trace/api"
+    "start": "npm run start --workspace @zero-trace/api",
+    "test": "npm run test --workspace @zero-trace/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

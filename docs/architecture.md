@@ -30,6 +30,10 @@ React Workbench
     -> Cache Provider
       -> memory
       -> redis (optional)
+    -> Auth + Rate Limit Layer
+      -> API key validation
+      -> request throttling
+      -> security headers
     -> Job Runner
       -> memory worker
       -> BullMQ (optional)
@@ -37,6 +41,10 @@ React Workbench
       -> baseline snapshots
       -> change diffs
       -> scheduled rechecks
+      -> persisted state
+      -> optional webhook notifications
+    -> Audit Logger
+      -> JSONL event stream
 ```
 
 ## Backend Modules
@@ -99,7 +107,7 @@ The monitoring layer turns one-off recon into an ongoing workflow.
 
 Current responsibilities:
 
-- store watched queries in memory
+- persist watched queries and snapshots to disk
 - create a baseline snapshot from the latest search response
 - compare each new run against the latest snapshot
 - surface changes such as:
@@ -111,6 +119,19 @@ Current responsibilities:
   - new endpoints
   - new high-probability targets
 - schedule automatic rechecks when `WATCH_INTERVAL_MS` is enabled
+- optionally post watch-change notifications to configured webhooks
+
+### Auth, Rate Limiting, and Audit
+
+The API boundary now includes security controls that are necessary before multi-user or internet-exposed deployment.
+
+Current responsibilities:
+
+- optional API-key authentication via `RECONPULSE_API_KEYS`
+- browser-origin allowlisting via `CORS_ORIGIN`
+- request throttling for search/read and mutation flows
+- restrictive outbound fetch validation to reduce SSRF risk
+- JSONL audit logging for request and operator actions
 
 ### Intelligence Engine
 
@@ -164,6 +185,7 @@ Primary surfaces:
 - command bar
 - ranked target cards
 - watch monitoring panel
+- access control panel
 - website fingerprint panel
 - external OSINT profile panel
 - graph view
@@ -188,5 +210,6 @@ Near-term scale path:
 - public people data is limited to what the target website itself exposes and may be incomplete
 - external person/company enrichment is limited to public knowledge-graph and public org-profile sources
 - public GitHub org members are treated as public profiles, not guaranteed employees
-- watch monitoring stores state in API memory in the current build
+- watch monitoring persists to local disk in the current build
+- outbound fetches are restricted to public HTTP(S) destinations and reject localhost/private-address targets
 - CVE references are treated as validation leads, not proof of exploitability

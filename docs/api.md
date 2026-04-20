@@ -4,7 +4,7 @@
 
 ### `GET /health`
 
-Returns API health plus current cache, worker, and monitoring summary.
+Returns API health plus current cache, worker, monitoring, and security summary.
 
 ### `GET /api/search`
 
@@ -13,6 +13,11 @@ Runs the passive recon pipeline synchronously and returns the fully ranked intel
 Query parameter:
 
 - `q`: required advanced query string
+
+Authentication:
+
+- optional `x-reconpulse-api-key` header
+- optional `Authorization: Bearer <key>` header
 
 Example:
 
@@ -54,6 +59,7 @@ Lists the current watch targets, including:
 - latest snapshot stats
 - most recent change list
 - next scheduled check time
+- persistent snapshots loaded from local storage path
 
 ### `POST /api/watch-targets`
 
@@ -127,10 +133,18 @@ The main search response includes:
   - job provider
   - indexing provider
 
+## Operational Security
+
+- When `RECONPULSE_API_KEYS` is configured, all `/api/*` endpoints require authentication except `/health`.
+- The API applies per-client rate limiting for search/read and mutation flows.
+- Audit logs are written as JSON lines to `AUDIT_LOG_PATH`.
+- Outbound fetches are restricted to validated public HTTP(S) targets to reduce SSRF exposure.
+
 ## Scaling Notes
 
 - Without `REDIS_URL`, the API uses in-memory caching and an in-process worker queue.
 - With `REDIS_URL`, the API can use Redis-backed caching and BullMQ-backed job execution.
 - The current indexing provider is an in-memory placeholder with a Meilisearch-ready integration point documented in the architecture.
-- Watch monitoring state is currently in-memory; targets reset when the API process restarts.
+- Watch monitoring state persists to `WATCH_STORAGE_PATH`.
 - `WATCH_INTERVAL_MS` controls automatic monitoring frequency. Set `0` for manual-only checks.
+- `WATCH_NOTIFICATION_WEBHOOK_URLS` can be used to post change payloads to external notification endpoints.

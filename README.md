@@ -33,9 +33,11 @@ ReconPulse is intentionally opinionated:
 - Graph-based attack surface view
 - Async recon jobs with polling
 - Watch targets with baseline snapshots and change diffs
+- Optional webhook notifications for watch changes
 - Browser-local search history
 - Modular source adapters
 - Memory-first runtime with optional Redis + BullMQ scale path
+- Security hardening with API keys, rate limiting, audit logs, and safer outbound fetch rules
 
 ## Stack
 
@@ -92,6 +94,12 @@ Default local ports:
 npm run build
 ```
 
+### 4. Run the test suite
+
+```bash
+npm test
+```
+
 ## Optional Scaling Setup
 
 If you want shared caching and a real worker queue, provide Redis:
@@ -113,6 +121,27 @@ npm run dev
 
 `WATCH_INTERVAL_MS` sets the automatic watch recheck interval. Set it to `0` for manual-only monitoring.
 
+## Security Controls
+
+Set a production API key and operational limits:
+
+```bash
+cp .env.example .env
+```
+
+Important variables:
+
+- `RECONPULSE_API_KEYS`: comma-separated API keys accepted by the API
+- `CORS_ORIGIN`: comma-separated allowed browser origins
+- `RATE_LIMIT_WINDOW_MS`: shared throttling window
+- `RATE_LIMIT_SEARCH_MAX`: max search/read requests per window per client
+- `RATE_LIMIT_MUTATION_MAX`: max job/watch mutations per window per client
+- `AUDIT_LOG_PATH`: JSONL audit log output path
+- `WATCH_STORAGE_PATH`: persisted watch state path
+- `WATCH_NOTIFICATION_WEBHOOK_URLS`: optional comma-separated webhook endpoints for watch-change notifications
+
+When API keys are enabled, the browser UI can store one locally in the Access Control panel and send it as `x-reconpulse-api-key`.
+
 ## API Highlights
 
 - `GET /api/search?q=domain:mozilla.org sort:risk`
@@ -129,7 +158,10 @@ See [docs/api.md](/home/crouns/Desktop/futur_projects/ZeroTrace/docs/api.md) for
 ## Notes
 
 - Search history is stored in browser `localStorage`.
-- Watch targets are currently stored in API memory and reset when the API process restarts.
+- Watch targets now persist to disk via `WATCH_STORAGE_PATH`.
+- Audit logs are written as JSON lines to `AUDIT_LOG_PATH`.
+- The API enforces optional API-key auth, per-client rate limits, and restrictive outbound fetch validation for public-only destinations.
+- Search results can now be exported from the UI as JSON or CSV.
 - Website organization intelligence is best-effort and limited to public target-site content.
 - External people/company enrichment is limited to public knowledge-graph and public organization-profile data.
 - ReconPulse does not scrape third-party employee networks or build private-person lookup workflows.

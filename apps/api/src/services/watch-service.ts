@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { config } from "../config.js";
+import { postJson } from "../lib/http.js";
 import type {
   FindingSeverity,
   PublicPerson,
@@ -13,6 +16,11 @@ import { SearchService } from "./search-service.js";
 interface WatchRecord {
   target: WatchTarget;
   latestResult?: SearchResponse;
+}
+
+interface PersistedWatchState {
+  version: 1;
+  watches: WatchRecord[];
 }
 
 const severityRank: Record<FindingSeverity, number> = {
@@ -67,7 +75,7 @@ function isInterestingPort(port: number): boolean {
   return ![80, 443].includes(port);
 }
 
-function buildWatchChanges(previous: SearchResponse | undefined, next: SearchResponse): WatchChange[] {
+export function computeWatchChanges(previous: SearchResponse | undefined, next: SearchResponse): WatchChange[] {
   if (!previous) {
     return [];
   }
@@ -239,11 +247,14 @@ function toPublicTarget(record: WatchRecord): WatchTarget {
 
 export class WatchService {
   private readonly watches = new Map<string, WatchRecord>();
+  private readonly readyPromise: Promise<void>;
 
   constructor(
     private readonly searchService: SearchService,
     private readonly jobProviderName: string,
   ) {
+    this.readyPromise = this.loadFromDisk();
+
     if (config.watchIntervalMs > 0) {
       const timer = setInterval(() => {
         void this.runDueChecks();
@@ -253,18 +264,22 @@ export class WatchService {
     }
   }
 
-  list(): WatchTarget[] {
+  async list(): Promise<WatchTarget[]> {
+    await this.readyPromise;
+
     return Array.from(this.watches.values())
       .map(toPublicTarget)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
-  get(id: string): WatchTarget | undefined {
+  async get(id: string): Promise<WatchTarget | undefined> {
+    await this.readyPromise;
     const record = this.watches.get(id);
     return record ? toPublicTarget(record) : undefined;
   }
 
   async create(query: string, label?: string): Promise<WatchTarget> {
+    await this.readyPromise;
     const normalizedQuery = query.trim();
 
     if (!normalizedQuery) {
@@ -300,11 +315,13 @@ export class WatchService {
       snapshots: [],
     };
     this.watches.set(target.id, { target });
+    await this.persist();
 
     return this.runCheck(target.id);
   }
 
   async runCheck(id: string): Promise<WatchTarget> {
+    await this.readyPromise;
     const record = this.watches.get(id);
 
     if (!record) {
@@ -320,6 +337,7 @@ export class WatchService {
     record.target.status = "running";
     record.target.updatedAt = startedIso;
     record.target.lastError = undefined;
+    await this.persist();
 
     try {
       const response = await this.searchService.search(record.target.query, {
@@ -327,7 +345,7 @@ export class WatchService {
         mode: "sync",
       });
       const checkedAt = new Date().toISOString();
-      const changes = buildWatchChanges(record.latestResult, response);
+      const changes = computeWatchChanges(record.latestResult, response);
       const snapshot: WatchSnapshot = {
         id: randomUUID(),
         createdAt: checkedAt,
@@ -345,6 +363,8 @@ export class WatchService {
       record.target.updatedAt = checkedAt;
       record.target.latestSnapshot = snapshot;
       record.target.snapshots = [snapshot, ...record.target.snapshots].slice(0, config.watchMaxSnapshots);
+      await this.persist();
+      await this.notifyOnChanges(record.target, snapshot);
       return toPublicTarget(record);
     } catch (error) {
       const failedAt = new Date().toISOString();
@@ -353,22 +373,34 @@ export class WatchService {
       record.target.updatedAt = failedAt;
       record.target.nextCheckAt =
         config.watchIntervalMs > 0 ? new Date(Date.now() + config.watchIntervalMs).toISOString() : undefined;
+      await this.persist();
       return toPublicTarget(record);
     }
   }
 
-  delete(id: string): boolean {
-    return this.watches.delete(id);
+  async delete(id: string): Promise<boolean> {
+    await this.readyPromise;
+    const deleted = this.watches.delete(id);
+
+    if (deleted) {
+      await this.persist();
+    }
+
+    return deleted;
   }
 
-  getSummary(): { count: number; intervalMs: number } {
+  async getSummary(): Promise<{ count: number; intervalMs: number; persistent: boolean; webhookCount: number }> {
+    await this.readyPromise;
     return {
       count: this.watches.size,
       intervalMs: config.watchIntervalMs,
+      persistent: true,
+      webhookCount: config.notificationWebhookUrls.length,
     };
   }
 
   private async runDueChecks(): Promise<void> {
+    await this.readyPromise;
     const now = Date.now();
 
     for (const record of this.watches.values()) {
@@ -386,5 +418,77 @@ export class WatchService {
         // Keep the watch service resilient; individual target failures surface on the target itself.
       }
     }
+  }
+
+  private async loadFromDisk(): Promise<void> {
+    try {
+      const raw = await readFile(config.watchStoragePath, "utf8");
+      const parsed = JSON.parse(raw) as PersistedWatchState;
+
+      if (parsed.version !== 1 || !Array.isArray(parsed.watches)) {
+        return;
+      }
+
+      for (const record of parsed.watches) {
+        this.watches.set(record.target.id, record);
+      }
+    } catch {
+      // First boot or malformed state should not stop the API.
+    }
+  }
+
+  private async persist(): Promise<void> {
+    const payload: PersistedWatchState = {
+      version: 1,
+      watches: Array.from(this.watches.values()),
+    };
+
+    try {
+      await mkdir(dirname(config.watchStoragePath), { recursive: true });
+      await writeFile(config.watchStoragePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    } catch {
+      // Persistence is best effort; API behavior continues even if disk writes fail.
+    }
+  }
+
+  private async notifyOnChanges(target: WatchTarget, snapshot: WatchSnapshot): Promise<void> {
+    if (snapshot.changes.length === 0 || config.notificationWebhookUrls.length === 0) {
+      return;
+    }
+
+    const payload = {
+      product: "ReconPulse",
+      event: "watch.changes_detected",
+      target: {
+        id: target.id,
+        label: target.label,
+        query: target.query,
+      },
+      snapshot: {
+        id: snapshot.id,
+        createdAt: snapshot.createdAt,
+        changeCount: snapshot.changeCount,
+        durationMs: snapshot.durationMs,
+      },
+      changes: snapshot.changes.slice(0, 20),
+    };
+
+    await Promise.all(
+      config.notificationWebhookUrls.map(async (url) => {
+        try {
+          const response = await postJson(url, payload);
+
+          if (!response.ok) {
+            throw new Error(`Notification webhook returned ${response.status}`);
+          }
+        } catch (error) {
+          console.warn(
+            `Watch notification failed for ${target.label}: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
+        }
+      }),
+    );
   }
 }

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
-import { fetchPage, fetchText } from "../lib/http.js";
+import { fetchJson, fetchPage, fetchText } from "../lib/http.js";
 import { isDomainLike } from "../lib/query.js";
 import type {
   EndpointAsset,
@@ -881,27 +881,24 @@ export class WebsiteProfileSource implements SearchSource {
   }
 
   private async lookupEarliestArchiveYear(hostname: string): Promise<number | undefined> {
-    const url =
-      `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(hostname)}` +
-      "&output=json&fl=timestamp&filter=statuscode:200&limit=1&from=1996";
-    const response = await fetch(url, {
-      headers: { "User-Agent": "ReconPulse/0.2" },
-      signal: AbortSignal.timeout(config.archiveLookupTimeoutMs),
-    });
+    try {
+      const url =
+        `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(hostname)}` +
+        "&output=json&fl=timestamp&filter=statuscode:200&limit=1&from=1996";
+      const payload = await fetchJson<ArchiveResponseRow[][]>(url, {
+        signal: AbortSignal.timeout(config.archiveLookupTimeoutMs),
+      });
+      const row = payload.at(1)?.at(0);
 
-    if (!response.ok) {
+      if (!row) {
+        return undefined;
+      }
+
+      const year = Number(String(row).slice(0, 4));
+      return Number.isFinite(year) ? year : undefined;
+    } catch {
       return undefined;
     }
-
-    const payload = (await response.json()) as ArchiveResponseRow[][];
-    const row = payload.at(1)?.at(0);
-
-    if (!row) {
-      return undefined;
-    }
-
-    const year = Number(String(row).slice(0, 4));
-    return Number.isFinite(year) ? year : undefined;
   }
 }
 

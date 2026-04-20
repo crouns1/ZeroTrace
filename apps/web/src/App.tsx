@@ -5,6 +5,7 @@ import { InsightCard } from "./components/InsightCard";
 import { PipelinePanel } from "./components/PipelinePanel";
 import { ResultSection } from "./components/ResultSection";
 import { SearchBar } from "./components/SearchBar";
+import { SecurityPanel } from "./components/SecurityPanel";
 import { WatchPanel } from "./components/WatchPanel";
 import {
   createWatchTarget,
@@ -16,6 +17,8 @@ import {
   startReconJob,
 } from "./lib/api";
 import { loadHistory, saveHistory } from "./lib/history";
+import { loadApiKey, saveApiKey } from "./lib/client-security";
+import { exportSearchAsCsv, exportSearchAsJson } from "./lib/export";
 import type { HistoryEntry, ReconJob, SearchResponse, WatchTarget } from "./lib/types";
 
 const quickQueries = [
@@ -59,6 +62,7 @@ function upsertWatchTarget(targets: WatchTarget[], next: WatchTarget): WatchTarg
 
 export default function App() {
   const [query, setQuery] = useState("domain:mozilla.org sort:risk");
+  const [apiKey, setApiKey] = useState("");
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [watchTargets, setWatchTargets] = useState<WatchTarget[]>([]);
@@ -70,6 +74,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setApiKey(loadApiKey());
     setHistory(loadHistory());
     void refreshWatchTargets();
   }, []);
@@ -219,6 +224,12 @@ export default function App() {
     } finally {
       setActiveWatchId(null);
     }
+  }
+
+  function handleSaveApiKey(value: string) {
+    const normalized = saveApiKey(value);
+    setApiKey(normalized);
+    void refreshWatchTargets();
   }
 
   const displayResult = activeJob?.result ?? result;
@@ -455,11 +466,12 @@ export default function App() {
                   <div className="summary-card">
                     <p className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Export</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {displayResult.exportFormats.map((format) => (
-                        <span className="mini-chip" key={format}>
-                          {format}
-                        </span>
-                      ))}
+                      <button className="chip-button" onClick={() => exportSearchAsJson(displayResult)} type="button">
+                        JSON
+                      </button>
+                      <button className="chip-button" onClick={() => exportSearchAsCsv(displayResult)} type="button">
+                        CSV
+                      </button>
                     </div>
                   </div>
                   <div className="summary-card">
@@ -749,6 +761,8 @@ export default function App() {
               targets={watchTargets}
               watchingQuery={isCreatingWatch}
             />
+
+            <SecurityPanel apiKey={apiKey} onSaveApiKey={handleSaveApiKey} />
 
             <HistoryPanel
               history={history}
