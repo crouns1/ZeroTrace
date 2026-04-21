@@ -58,6 +58,33 @@ function getTrackerRecordCount(result: SearchResponse | null): number {
   return result?.osintTracker?.sections.reduce((total, section) => total + section.items.length, 0) ?? 0;
 }
 
+function getTrackedAssetCount(result: SearchResponse | null): number {
+  if (!result) {
+    return 0;
+  }
+
+  return result.stats.domainCount + result.stats.subdomainCount + result.stats.ipCount;
+}
+
+function getTopTarget(result: SearchResponse | null): string {
+  return result?.highProbabilityTargets[0]?.label ?? result?.insights[0]?.label ?? "Awaiting target";
+}
+
+function getPrimarySuggestion(result: SearchResponse | null): string {
+  return (
+    result?.suggestions[0] ??
+    "Chain domain, risk, tech, and port filters to narrow the investigation path faster."
+  );
+}
+
+function getPipelineState(activeJob: ReconJob | null): string {
+  if (!activeJob) {
+    return "standby";
+  }
+
+  return activeJob.currentStage ?? activeJob.status;
+}
+
 function upsertWatchTarget(targets: WatchTarget[], next: WatchTarget): WatchTarget[] {
   return Array.from(new Map([next, ...targets].map((target) => [target.id, target])).values()).sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
@@ -237,34 +264,117 @@ export default function App() {
   }
 
   const displayResult = activeJob?.result ?? result;
+  const heroSignals = [
+    {
+      label: "Tracked assets",
+      value: getTrackedAssetCount(displayResult) || "--",
+      note: "Domains, subdomains, and IPs mapped into one attack surface.",
+    },
+    {
+      label: "Open ports",
+      value: displayResult?.stats.portCount ?? "--",
+      note: "Passive service clues ranked before manual validation begins.",
+    },
+    {
+      label: "Public people",
+      value: displayResult?.stats.peopleCount ?? "--",
+      note: "Leadership, maintainers, and public org signals surfaced for pivots.",
+    },
+    {
+      label: "OSINT lanes",
+      value: displayResult?.osintTracker?.sections.length ?? "--",
+      note: "Identity, code, social, mentions, and web footprint grouped together.",
+    },
+  ];
+  const headerStatus = [
+    {
+      label: "Mode",
+      value: displayResult ? "Live passive" : "Standby",
+      meta: displayResult?.metadata.cached ? "cache replay" : "fresh collection",
+    },
+    {
+      label: "Pipeline",
+      value: getPipelineState(activeJob),
+      meta: activeJob ? `${activeJob.progress}% progress` : "ready on demand",
+    },
+    {
+      label: "Watchlist",
+      value: String(watchTargets.length),
+      meta: watchTargets.length > 0 ? "monitored targets loaded" : "no active watches",
+    },
+    {
+      label: "Feeds",
+      value: displayResult?.sources.length ? String(displayResult.sources.length) : "5+",
+      meta: displayResult?.sources.length ? displayResult.sources.join(" · ") : "CT · DNS · web · OSINT",
+    },
+  ];
+  const operatorBrief = [
+    {
+      label: "Target on deck",
+      value: getTopTarget(displayResult),
+      meta: displayResult?.query.raw ?? query,
+    },
+    {
+      label: "Where to look",
+      value: getPrimarySuggestion(displayResult),
+      meta:
+        displayResult?.highProbabilityTargets[0]?.riskLevel ??
+        displayResult?.insights[0]?.riskLevel ??
+        "signal guidance",
+    },
+    {
+      label: "Source pressure",
+      value:
+        displayResult?.sources.length
+          ? displayResult.sources.slice(0, 3).join(" · ")
+          : "certspotter · dns · web-intel",
+      meta: displayResult ? `${displayResult.stats.relatedAssetCount} related pivots ready` : "waiting for first run",
+    },
+  ];
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
       <main className="screen-shell mx-auto max-w-[1600px] space-y-6">
         <header className="command-header">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="terminal-lights">
-              <span className="terminal-light terminal-red" />
-              <span className="terminal-light terminal-amber" />
-              <span className="terminal-light terminal-green" />
+          <div className="header-cluster">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="terminal-lights">
+                <span className="terminal-light terminal-red" />
+                <span className="terminal-light terminal-amber" />
+                <span className="terminal-light terminal-green" />
+              </div>
+              <div>
+                <p className="mono text-[11px] uppercase tracking-[0.35em] text-emerald-300">ReconPulse // Operator Console</p>
+                <h1 className="mt-2 text-lg font-semibold text-slate-50 sm:text-xl">
+                  Passive recon intelligence for daily bug bounty work
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                  Analyst-grade surface mapping, public-source OSINT, and ranked attack paths in one workbench.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="mono text-[11px] uppercase tracking-[0.35em] text-emerald-300">ReconPulse // Operator Console</p>
-              <h1 className="mt-2 text-lg font-semibold text-slate-50 sm:text-xl">
-                Passive recon intelligence for daily bug bounty work
-              </h1>
+
+            <div className="header-console-row">
+              <span className="console-chip">signal-first</span>
+              <span className="console-chip">keyboard-driven</span>
+              <span className="console-chip">
+                {displayResult?.performance.cacheProvider ?? "memory"} cache
+              </span>
+              <span className="console-chip">
+                {displayResult?.performance.jobProvider ?? "memory-worker"} worker
+              </span>
+              <span className="console-chip">{displayResult?.metadata.cached ? "cache replay" : "live pull"}</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="console-chip">signal-first</span>
-            <span className="console-chip">keyboard-driven</span>
-            <span className="console-chip">
-              {displayResult?.performance.cacheProvider ?? "memory"} cache
-            </span>
-            <span className="console-chip">
-              {displayResult?.performance.jobProvider ?? "memory-worker"} worker
-            </span>
+          <div className="header-status-grid">
+            {headerStatus.map((item) => (
+              <div className="header-status-card" key={item.label}>
+                <div className="mono text-[11px] uppercase tracking-[0.3em] text-slate-500">{item.label}</div>
+                <div className="header-status-value">{item.value}</div>
+                <div className="header-status-meta">{item.meta}</div>
+              </div>
+            ))}
           </div>
         </header>
 
@@ -280,14 +390,27 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="max-w-5xl">
-                  <h2 className="title-glow text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">
-                    Find bugs faster by cutting straight to risky surface area.
-                  </h2>
-                  <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
-                    A hacker-centric reconnaissance workbench that turns passive OSINT into ranked
-                    targets, live graph pivots, tech clues, and concrete places to inspect next.
-                  </p>
+                <div className="hero-copy-grid">
+                  <div className="max-w-5xl">
+                    <div className="hero-kicker">Surface map • OSINT tracker • attack path ranking</div>
+                    <h2 className="title-glow mt-4 text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">
+                      Make the first five minutes of recon feel unfair.
+                    </h2>
+                    <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
+                      ReconPulse turns passive collection into a fast operator loop: rank the surface, pivot through
+                      relationships, expose public context, and move straight toward the parts most likely to break.
+                    </p>
+                  </div>
+
+                  <div className="hero-signal-grid">
+                    {heroSignals.map((signal) => (
+                      <div className="hero-signal-card" key={signal.label}>
+                        <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">{signal.label}</div>
+                        <div className="hero-signal-value">{signal.value}</div>
+                        <p className="hero-signal-note">{signal.note}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="terminal-panel">
@@ -301,7 +424,7 @@ export default function App() {
                   />
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-4">
+                <div className="hero-note-grid">
                   {quickQueries.map((example) => (
                     <button
                       className="operator-card text-left"
@@ -359,6 +482,26 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="intel-feed">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="mono text-[11px] uppercase tracking-[0.32em] text-cyan-300">Operator brief</p>
+                      <h3 className="mt-2 text-lg font-semibold text-slate-50">Current mission framing</h3>
+                    </div>
+                    <span className="metric-pill">{displayResult?.query.operator ?? "ready"}</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {operatorBrief.map((item) => (
+                      <div className="intel-feed-item" key={item.label}>
+                        <div className="mono text-[11px] uppercase tracking-[0.26em] text-slate-500">{item.label}</div>
+                        <div className="mt-2 text-sm leading-6 text-slate-100">{item.value}</div>
+                        <div className="mt-3 text-xs leading-6 text-slate-400">{item.meta}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="mission-strip grid gap-3">
                   <div className="mission-cell">
                     <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Core philosophy</div>
@@ -367,15 +510,15 @@ export default function App() {
                     </p>
                   </div>
                   <div className="mission-cell">
-                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Automation</div>
+                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Operator loop</div>
                     <p className="mt-2 text-sm leading-6 text-slate-300">
-                      Passive subdomain discovery, service enrichment, endpoint hints, scoring, and graph correlation in one pass.
+                      Search, rank, pivot, monitor, export. The workbench stays fast enough to use as your daily starting point.
                     </p>
                   </div>
                   <div className="mission-cell">
-                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Scale path</div>
+                    <div className="mono text-xs uppercase tracking-[0.3em] text-slate-500">Ethical guardrail</div>
                     <p className="mt-2 text-sm leading-6 text-slate-300">
-                      Memory-first locally, Redis/BullMQ-ready when you want background workers and shared caching.
+                      Public-only collection, no intrusive scanning, and clear source visibility when a result needs verification.
                     </p>
                   </div>
                 </div>

@@ -1,5 +1,14 @@
 import { FormEvent } from "react";
 
+const operatorHints = [
+  { key: "domain:", note: "surface scope" },
+  { key: "subdomain:", note: "asset pivot" },
+  { key: "company:", note: "org OSINT" },
+  { key: "person:", note: "public profile" },
+  { key: "risk:", note: "priority filter" },
+  { key: "tech:", note: "stack focus" },
+];
+
 interface SearchBarProps {
   isLoading: boolean;
   isPipelineLoading: boolean;
@@ -23,36 +32,58 @@ export function SearchBar({
   }
 
   return (
-    <form className="space-y-3" onSubmit={handleSubmit}>
-      <div className="panel-outline flex items-center gap-3 rounded-2xl px-4 py-3">
-        <span className="mono text-sm text-emerald-300">query&gt;</span>
-        <input
-          autoComplete="off"
-          className="mono w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="domain:example.com"
-          spellCheck={false}
-          type="text"
-          value={query}
-        />
-        <button className="action-button" disabled={isLoading} type="submit">
-          {isLoading ? "Searching..." : "Search"}
-        </button>
-        <button
-          className="chip-button"
-          disabled={isPipelineLoading}
-          onClick={() => onLaunchPipeline(query)}
-          type="button"
-        >
-          {isPipelineLoading ? "Pipeline..." : "Run Pipeline"}
-        </button>
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      <div className="search-shell">
+        <div className="search-row">
+          <div className="search-prompt">
+            <div className="mono text-[11px] uppercase tracking-[0.28em] text-slate-500">command</div>
+            <div className="mono mt-2 text-sm text-emerald-300">recon@pulse:~$</div>
+          </div>
+
+          <input
+            autoComplete="off"
+            className="search-input mono"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="domain:example.com sort:risk"
+            spellCheck={false}
+            type="text"
+            value={query}
+          />
+        </div>
+
+        <div className="search-control-row">
+          <p className="text-sm leading-6 text-slate-400">
+            Chain filters, sort the surface, then launch deeper passive correlation when the target looks worth your time.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="action-button" disabled={isLoading} type="submit">
+              {isLoading ? "Searching..." : "Search"}
+            </button>
+            <button
+              className="chip-button"
+              disabled={isPipelineLoading}
+              onClick={() => onLaunchPipeline(query)}
+              type="button"
+            >
+              {isPipelineLoading ? "Pipeline..." : "Run Pipeline"}
+            </button>
+          </div>
+        </div>
       </div>
+
+      <div className="operator-legend">
+        {operatorHints.map((operator) => (
+          <div className="legend-chip" key={operator.key}>
+            <span className="legend-key">{operator.key}</span>
+            <span className="legend-note">{operator.note}</span>
+          </div>
+        ))}
+      </div>
+
       <p className="mono text-xs text-slate-400">
-        Operators: <span className="text-emerald-300">domain:</span>,{" "}
-        <span className="text-cyan-300">subdomain:</span>, <span className="text-amber-300">ip:</span>,{" "}
-        <span className="text-fuchsia-300">company:</span>, <span className="text-pink-300">person:</span>,{" "}
-        <span className="text-rose-300">risk:</span>, <span className="text-violet-300">port:</span>,{" "}
-        <span className="text-sky-300">tech:</span>, <span className="text-lime-300">status:</span>. Use plain text for
+        Also supports <span className="text-amber-300">ip:</span>, <span className="text-violet-300">port:</span>,{" "}
+        <span className="text-sky-300">tech:</span>, <span className="text-lime-300">status:</span>, and plain text for
         multi-word names.
       </p>
     </form>
